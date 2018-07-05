@@ -39,3 +39,18 @@ Tool Information Gathering Write With Python.
     
 Enter : 
 </pre>
+
+
+## Operating Systems Tested
+- Kali Linux 2018.2
+- Windows 10
+
+
+## Install
+```bash
+git clone https://github.com/ultrasecurity/webkiller.git
+cd webkiller
+pip install -r requirements.txt
+python webkiller.py 
+```
+
