@@ -54,3 +54,7 @@ pip install -r requirements.txt
 python webkiller.py 
 ```
 
+## ScreenShot
+![webkiller](https://user-images.githubusercontent.com/34939571/42339890-a8da008c-80a3-11e8-87c1-dcf5e0648203.png)
+
+
