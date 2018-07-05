@@ -187,11 +187,11 @@ while True:
             webs = removeHTTP(website)
             w = builtwith.builtwith(website)
 
-            print "[+] Cms : " + w["cms"][0]
-            print "[+] Web Servers : " + w["web-servers"][0]
-            print "[+] Programming Languages : " + w["programming-languages"][0]
+            print "[+] Cms : " , w["cms"][0]
+            print "[+] Web Servers : " , w["web-servers"][0]
+            print "[+] Programming Languages : " , w["programming-languages"][0]
             print "\n"
-        except URLError:
+        except:
             write(var="@", color=r,data="Sorry, The webserver of the website you entered have no domains other then the one you gave ")
 
 
