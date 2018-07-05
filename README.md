@@ -60,8 +60,9 @@ python webkiller.py
 
 ### Thanks to
     Ashkan Moghaddas - Ultra Security Team Leader
-    Abolfazl Hajizadeh  - Ultra Security Team Programmer
-    Milad Ranjbar - Ultra Security Team Programmer
+    Abolfazl Hajizadeh - Ultra Security Team Programmer
+    Milad Ranjbar -  Ultra Security Team Programmer
+    Team Member  -  MrQadir 
 
 ### Contact us
 - WebSite Ultra Security Team : https://ultrasec.org
