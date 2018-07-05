@@ -58,3 +58,11 @@ python webkiller.py
 ![webkiller](https://user-images.githubusercontent.com/34939571/42339890-a8da008c-80a3-11e8-87c1-dcf5e0648203.png)
 
 
+### Thanks to
+    Ashkan Moghaddas - Ultra Security Team Leader
+    Abolfazl Hajizadeh  - Ultra Security Team Programmer
+    Milad Ranjbar - Ultra Security Team Programmer
+
+### Contact us
+- WebSite Ultra Security Team : https://ultrasec.org
+- Channel Telegram : https://t.me/UltraSecurity
