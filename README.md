@@ -70,4 +70,4 @@ Youtube : https://www.youtube.com/watch?v=MTaM1YX8QsE
 ### Contact us
 - WebSite Ultra Security Team : https://ultrasec.org
 - Channel Telegram : https://t.me/UltraSecurity
-- Contact with Milad Ranjbar : https://t.me/milad_sec
+- Contact with Milad Ranjbar : https://t.me/milad_zero
