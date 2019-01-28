@@ -6,7 +6,7 @@ import modules.colors
 import requests,json
 import os
 import socket
-import builtwith
+# import builtwith
 from urllib2 import Request, urlopen, URLError, HTTPError
 
 while True:
