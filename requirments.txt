@@ -1,4 +1,0 @@
-requests
-colorama
-ipapi
-builtwith
