@@ -1,4 +1,4 @@
-# WebKiller
+# WebKiller V2
 
 Tool Information Gathering Write With Python.
 
