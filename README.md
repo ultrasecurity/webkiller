@@ -43,16 +43,17 @@ Tool Information Gathering Write With Python.
 
 
 ## Operating Systems Tested
-- Kali Linux 2018.2
+- Kali Linux 2020.1
 - Windows 10
+- Ubuntu 19.10
 
 
 ## Install
 ```bash
 git clone https://github.com/ultrasecurity/webkiller.git
 cd webkiller
-pip install -r requirements.txt
-python webkiller.py 
+pip3 install -r requirements.txt
+python3 webkiller.py 
 ```
 
 ## ScreenShot
@@ -64,11 +65,11 @@ Youtube : https://www.youtube.com/watch?v=MTaM1YX8QsE
 
 ### Thanks to
     Ashkan Moghaddas - Ultra Security Team Leader
-    Abolfazl Hajizadeh - Ultra Security Team Programmer
-    Milad Ranjbar -  Ultra Security Team Programmer
-    MrQadir - Team Member 
+    Behzad Khalifeh- Ultra Security Team Programmer
+    AmirMohammad Safari - WebApplication Pentester 
+     
 
 ### Contact us
 - WebSite Ultra Security Team : https://ultrasec.org
 - Channel Telegram : https://t.me/UltraSecurity
-- Contact with Milad Ranjbar : https://t.me/milad_zero
+
