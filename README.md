@@ -52,7 +52,7 @@ python webkiller.py
 ```
 
 ## ScreenShot
-![webkiller](https://user-images.githubusercontent.com/34939571/42339890-a8da008c-80a3-11e8-87c1-dcf5e0648203.png)
+![webkiller](http://uupload.ir/files/otmb_webkiller.jpg)
 
 ## Video Tutorial
 Youtube : https://www.youtube.com/watch?v=MTaM1YX8QsE
