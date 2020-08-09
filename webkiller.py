@@ -61,8 +61,7 @@ while True:
         print("\n God Lock :) ")
         sys.exit()
     if number == '4':
-
-        print
+        print("Thanks For Using!")
         sys.exit()
             
         #####################
