@@ -58,7 +58,7 @@ while True:
         number = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"""]
  └──╼ """+Fore.WHITE+"卐 ").lower()
     except:
-        print("\n God Lock :) ")
+        print("\n Good Luck :) ")
         sys.exit()
     if number == '4':
 
