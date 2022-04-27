@@ -24,7 +24,7 @@ def Banner():
 # ₿
 def infolist1():
     time.sleep(0.1)
-    print(Fore.RED+" ["+Fore.WHITE+"卐"+Fore.RED+"]"+Fore.CYAN+" Choose one of the options below \n")
+    print(Fore.RED+" ["+Fore.WHITE+"$"+Fore.RED+"]"+Fore.CYAN+" Choose one of the options below \n")
     time.sleep(0.1)
     print(Fore.LIGHTYELLOW_EX+" [1] Information Gathering\n")
     time.sleep(0.1)

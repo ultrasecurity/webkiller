@@ -9,7 +9,7 @@ def __start__():
         print (Fore.RED+"\n [!] Enter The Domain/ip\n")
 
         website = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"/"+Fore.CYAN+"IG"+Fore.RED+"/"+Fore.LIGHTYELLOW_EX+"Reverse_IP"+Fore.RED+"""]
- └──╼ """+Fore.WHITE+"卐 ")
+ └──╼ """+Fore.WHITE+"$ ")
 
         mysite = {"remoteAddress":website}
 

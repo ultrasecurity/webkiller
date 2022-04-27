@@ -41,7 +41,7 @@ def __start__():
     try:
         print(Fore.RED+" [!] Plase Enter WebSite Address \n")
         url = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"/"+Fore.CYAN+"IG"+Fore.RED+"/"+Fore.LIGHTYELLOW_EX+"Robots_Scanner"+Fore.RED+"""]
- └──╼ """+Fore.WHITE+"卐 ")
+ └──╼ """+Fore.WHITE+"$ ")
         if 'http' in url:
             pass
         elif 'http' != url:

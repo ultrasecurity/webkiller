@@ -25,7 +25,7 @@ Tool Information Gathering Write With Python.
  **                   Thank's : .::Shayan::.                       **
  ====================================================================          
           
- [卐] Choose one of the options below 
+ [$] Choose one of the options below 
 
  [1] Information Gathering
 
@@ -36,7 +36,7 @@ Tool Information Gathering Write With Python.
  [4] Exit . . .
 
  ┌─[WEBKILLER~@HOME]
- └──╼ 卐 
+ └──╼ $ 
 
 
 </pre>

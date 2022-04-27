@@ -7,7 +7,7 @@ def __start__():
         try:
                 print(Fore.RED+"\n [!] Plase Enter IP/Domain\n")
                 inp = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"/"+Fore.CYAN+"IG"+Fore.RED+"/"+Fore.LIGHTYELLOW_EX+"Find-DNS"+Fore.RED+"""]
- └──╼ """+Fore.WHITE+"卐 ")
+ └──╼ """+Fore.WHITE+"$ ")
                 result = requests.get('https://api.hackertarget.com/findshareddns/?q=' + inp).text
                 print(Fore.BLUE+result)
                 try:

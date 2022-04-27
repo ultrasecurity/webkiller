@@ -7,7 +7,7 @@ def __start__():
         print(Fore.LIGHTBLACK_EX+"\n [!] Simple Port Scanner ! ! !")
         print(Fore.MAGENTA+"\n [!] Plase Enter IP/Domain\n")
         inp = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"/"+Fore.CYAN+"IG"+Fore.RED+"/"+Fore.LIGHTYELLOW_EX+"Port-Scan"+Fore.RED+"""]
- └──╼ """+Fore.WHITE+"卐 ")
+ └──╼ """+Fore.WHITE+"$ ")
         result = requests.get('https://api.hackertarget.com/nmap/?q=' + inp).text
         print(Fore.YELLOW+result)
         try:

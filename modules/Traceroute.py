@@ -7,7 +7,7 @@ def __start__():
                 
                 print(Fore.RED+" [!] Plase Enter Domain")
                 inp = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"/"+Fore.CYAN+"IG"+Fore.RED+"/"+Fore.LIGHTYELLOW_EX+"TraceRoute"+Fore.RED+"""]
- └──╼ """+Fore.WHITE+"卐 ")
+ └──╼ """+Fore.WHITE+"$ ")
                 result = requests.get('https://api.hackertarget.com/mtr/?q=' + inp).text
                 print(result)
                 try:

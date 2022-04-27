@@ -6,7 +6,7 @@ def __start__():
         try:
                 print(Fore.LIGHTRED_EX+" [!] Enter The Domain\n")    
                 inp = input(Fore.RED+" ┌─["+Fore.LIGHTGREEN_EX+"WEBKILLER"+Fore.BLUE+"~"+Fore.WHITE+"@HOME"+Fore.RED+"/"+Fore.CYAN+"IG"+Fore.RED+"/"+Fore.LIGHTYELLOW_EX+"HTTP-Header"+Fore.RED+"""]
- └──╼ """+Fore.WHITE+"卐 ")
+ └──╼ """+Fore.WHITE+"$ ")
                 result = requests.get('https://api.hackertarget.com/httpheaders/?q=' + inp).text
                 print(Fore.LIGHTBLUE_EX+result)
                 try:
