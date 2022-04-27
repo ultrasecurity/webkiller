@@ -20,8 +20,7 @@ Tool Information Gathering Write With Python.
  ====================================================================
  **                  WebSite : UltraSec.org                        **
  **                  Channel : @UltraSecurity                      **
- **                 Developers : Ultra Security Team                            **
- **               Team Members : Ashkan Moghaddas , Behzad Khalifeh , AmirMohammad Safari           **
+ **                 Developers : Ultra Security Team               **
  **                   Thank's : .::Shayan::.                       **
  ====================================================================          
           
