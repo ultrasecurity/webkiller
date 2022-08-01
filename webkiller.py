@@ -12,7 +12,7 @@ try:
     from colorama import Fore
 except:
     os.system("clear")
-    print(Fore.RED+"""\n Please Install colorama\n
+    print("""\n Please Install colorama\n
     pip3 install colorama
         """)
 
