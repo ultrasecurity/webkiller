@@ -1,6 +1,5 @@
 #!/usr/bin/env python3  
 import sys
-import socket
 import os
 import time
 from helplist import helpp
@@ -15,7 +14,10 @@ except:
     print("""\n Please Install colorama\n
     pip3 install colorama
         """)
-
+try:
+    import socket
+except ImportError:
+    os.system("pip install socket")
 #---------------------------
 
 try:
