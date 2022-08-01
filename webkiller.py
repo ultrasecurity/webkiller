@@ -22,7 +22,7 @@ try:
     import requests
 except:
     os.system("clear")
-    print(Fore.RED+"""\n Please Install requests\n
+    print("""\n Please Install requests\n
     pip3 install requests
         """)
 
@@ -33,7 +33,7 @@ try:
     import ipapi
 except:
     os.system("clear")
-    print(Fore.RED+"""\n Please Install ipapi\n
+    print("""\n Please Install ipapi\n
     pip3 install ipapi
         """)
 
@@ -44,7 +44,7 @@ try:
     import builtwith
 except:
     os.system("clear")
-    print(Fore.RED+"""\n Please Install builtwith\n
+    print("""\n Please Install builtwith\n
     pip3 install builtwith
         """)
 
