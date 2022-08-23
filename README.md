@@ -51,7 +51,7 @@ Tool Information Gathering Write With Python.
 ```bash
 git clone https://github.com/ultrasecurity/webkiller.git
 cd webkiller
-pip3 install -r requirements.txt
+pip3 install -r requirments.txt
 python3 webkiller.py 
 ```
 
