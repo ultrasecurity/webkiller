@@ -1,0 +1,7 @@
+name: quick
+description: Quick recon — discovery + probing
+phases: [P0, P1, P3, P8]
+modules:
+  - subdomains_passive
+  - probe
+  - portscan

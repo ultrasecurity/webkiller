@@ -1,0 +1,23 @@
+name: aggressive
+description: Full recon + active vuln confirmation (DAST/OOB/authz)
+phases: [P0, P1, P2, P3, P4, P5, P6a, P6b, P7, P8]
+modules:
+  - subdomains_passive
+  - subdomains_active
+  - probe
+  - portscan
+  - fingerprint
+  - urls
+  - content
+  - jsrecon
+  - params
+  - screenshots
+  - vuln_signal
+  - vuln_confirm
+  - xss_confirm
+  - sqli_confirm
+  - authz_probe
+  - bypass_403
+  - secret_verify
+  - osint_dns
+  - tagging
