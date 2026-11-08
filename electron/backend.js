@@ -37,7 +37,7 @@ async function bootstrapVenv(onProgress) {
 
   const systemPython = getPythonPath();
   if (!systemPython) {
-    throw new Error('Python 3.10+ not found');
+    throw new Error('Python 3.8+ not found');
   }
 
   if (onProgress) onProgress({ step: 'venv', status: 'creating' });

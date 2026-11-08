@@ -38,18 +38,18 @@ async function bootstrap() {
   const pythonCheck = await checkPython();
   if (!pythonCheck.found || !pythonCheck.meetsMinimum) {
     const msg = !pythonCheck.found
-      ? 'Python 3.10+ is required but was not found on your system.'
-      : `Python ${pythonCheck.version} found, but 3.10+ is required.`;
+      ? 'Python 3.8+ is required but was not found on your system.'
+      : `Python ${pythonCheck.version} found, but 3.8+ is required.`;
 
     const instructions = {
       darwin: 'Install: brew install python@3.12\nor download from python.org',
-      linux: 'Install: sudo apt install python3.12 python3.12-venv',
+      linux: 'Install: sudo apt install python3 python3-venv',
       win32: 'Download from python.org\nMake sure to check "Add Python to PATH"',
     };
 
     dialog.showErrorBox(
       'Python Required',
-      `${msg}\n\n${instructions[process.platform] || 'Install Python 3.10+ and restart.'}`
+      `${msg}\n\n${instructions[process.platform] || 'Install Python 3.8+ and restart.'}`
     );
     app.quit();
     return;

@@ -17,7 +17,7 @@ async function checkPython() {
       if (match) {
         const [, major, minor, patch] = match.map(Number);
         const version = `${major}.${minor}.${patch}`;
-        const meetsMinimum = major === 3 && minor >= 10;
+        const meetsMinimum = major === 3 && minor >= 8;
         const fullPath = await whichCmd(cmd);
         return { found: true, path: fullPath, version, meetsMinimum };
       }

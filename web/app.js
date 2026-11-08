@@ -519,13 +519,13 @@ async function renderSetup() {
       $('#setupNav').innerHTML = `<button class="btn btn-primary" id="nextBtn">Continue</button>`;
       $('#nextBtn').addEventListener('click', () => { step = 1; renderStep1(); });
     } else {
-      const ver = result.found ? `Python ${result.version} found, but 3.10+ required` : 'Python 3.10+ not found';
+      const ver = result.found ? `Python ${result.version} found, but 3.8+ required` : 'Python 3.8+ not found';
       content.innerHTML = `
         <div class="card animate-in" style="max-width:600px;margin:0 auto">
           <div class="card-body" style="text-align:center">
             <div class="setup-check-icon fail">✗</div>
             <h2 style="color:var(--accent-red);margin:var(--space-3) 0">${esc(ver)}</h2>
-            <p style="color:var(--text-secondary)">Install Python 3.10+ and click Re-check.</p>
+            <p style="color:var(--text-secondary)">Install Python 3.8+ and click Re-check.</p>
             <div class="setup-instructions">
               <code>brew install python@3.12</code> (macOS)<br>
               <code>sudo apt install python3.12</code> (Linux)<br>
