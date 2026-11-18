@@ -1,5 +1,0 @@
-flask>=3.0
-pyyaml>=6.0
-requests>=2.31
-dnspython>=2.6
-aiohttp>=3.9

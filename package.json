@@ -21,17 +21,19 @@
       "main.js",
       "preload.js",
       "electron/**/*",
-      "app.py",
-      "core/**/*",
-      "modules/**/*",
+      "server/**/*",
       "profiles/**/*",
       "wordlists/**/*",
-      "web/**/*",
-      "requirements.txt"
+      "web/**/*"
     ],
     "mac": {
       "target": [
-        { "target": "zip", "arch": ["arm64"] }
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
       "icon": "build/icon.icns",
       "category": "public.app-category.developer-tools",
@@ -41,7 +43,12 @@
     },
     "win": {
       "target": [
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico",
       "signAndEditExecutable": false,
@@ -49,8 +56,20 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] },
-        { "target": "deb", "arch": ["x64", "arm64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "icon": "build/icon.png",
       "category": "Development"
@@ -61,12 +80,8 @@
     },
     "asar": true,
     "asarUnpack": [
-      "app.py",
-      "core/**/*",
-      "modules/**/*",
       "profiles/**/*",
-      "wordlists/**/*",
-      "requirements.txt"
+      "wordlists/**/*"
     ]
   },
   "devDependencies": {
@@ -74,6 +89,8 @@
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
+    "express": "^5.3.0",
+    "js-yaml": "^4.3.2",
     "yauzl": "^3.2.0"
   }
 }

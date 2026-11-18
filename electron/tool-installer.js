@@ -8,8 +8,6 @@ const { TOOLS_MANIFEST } = require('./tools-manifest');
 const {
   getToolsBinDir,
   getToolsTmpDir,
-  getVenvDir,
-  getVenvBinDir,
   getPlatformKey,
 } = require('./paths');
 
@@ -55,11 +53,9 @@ class ToolInstaller {
       case 'github-binary':
         await this._installGithubBinary(name, manifest);
         break;
-      case 'pip':
-        await this._installPipPackage(name, manifest);
-        break;
+      case 'optional-pip':
       case 'system':
-        throw new Error(`${name} requires manual installation`);
+        throw new Error(`${name} requires manual installation: ${manifest.installInstructions?.[process.platform] || 'see docs'}`);
       default:
         throw new Error(`Unknown install type: ${manifest.type}`);
     }
@@ -109,30 +105,6 @@ class ToolInstaller {
 
     if (manifest.postInstall === 'gf-patterns') {
       await this._installGfPatterns();
-    }
-  }
-
-  async _installPipPackage(name, manifest) {
-    const venvDir = getVenvDir();
-    const pip = process.platform === 'win32'
-      ? path.join(venvDir, 'Scripts', 'pip.exe')
-      : path.join(venvDir, 'bin', 'pip');
-
-    if (!fs.existsSync(pip)) {
-      throw new Error('Python venv not found. Restart the application.');
-    }
-
-    this.onProgress({ tool: name, status: 'pip-install', message: `pip install ${manifest.package}...` });
-
-    try {
-      await this._exec(pip, ['install', manifest.package, '--quiet']);
-    } catch (err) {
-      if (manifest.fallbackUrl) {
-        this.onProgress({ tool: name, status: 'pip-fallback', message: `Trying git install...` });
-        await this._exec(pip, ['install', `git+${manifest.fallbackUrl}`, '--quiet']);
-      } else {
-        throw err;
-      }
     }
   }
 
@@ -309,12 +281,6 @@ class ToolInstaller {
     const binSuffix = process.platform === 'win32' ? '.exe' : '';
     const binPath = path.join(binDir, manifest.binaryName + binSuffix);
     if (fs.existsSync(binPath)) return true;
-
-    if (manifest.type === 'pip') {
-      const venvBin = getVenvBinDir();
-      const pipBinPath = path.join(venvBin, manifest.binaryName + binSuffix);
-      if (fs.existsSync(pipBinPath)) return true;
-    }
 
     return this._isOnPath(manifest.binaryName);
   }

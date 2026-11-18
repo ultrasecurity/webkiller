@@ -3,7 +3,6 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
 
-  checkPython: () => ipcRenderer.invoke('setup:check-python'),
   getToolsStatus: () => ipcRenderer.invoke('setup:tools-status'),
   installTool: (toolName) => ipcRenderer.invoke('setup:install-tool', toolName),
   installAllTools: () => ipcRenderer.invoke('setup:install-all'),

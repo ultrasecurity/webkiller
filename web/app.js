@@ -19,7 +19,8 @@ function route() {
   else if (hash === '/scan') renderNewScan();
   else if (hash.startsWith('/scan/')) renderScanProgress(hash.split('/')[2]);
   else if (hash.startsWith('/results/')) renderResults(hash.split('/')[2]);
-  else if (hash === '/tools') renderTools();
+  else if (hash === '/tools') { location.hash = '/settings'; return; } // merged into Settings → Dependencies
+  else if (hash === '/settings') renderSettings();
   else renderDashboard();
 }
 
@@ -44,7 +45,7 @@ async function renderDashboard() {
     <div class="section-header animate-in">
       <div>
         <h1 class="section-title">Dashboard</h1>
-        <p class="section-sub">Recon orchestration engine</p>
+        <p class="section-sub">Your scans and findings</p>
       </div>
       <a href="#/scan" class="btn btn-primary">
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -75,66 +76,119 @@ async function renderDashboard() {
   $('#statFindings').textContent = totalFindings;
 
   if (!scans.length) {
-    $('#scanList').innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">⚡</div>
-        <div class="empty-text">No scans yet</div>
-        <a href="#/scan" class="btn btn-primary">Start Your First Scan</a>
+    app.innerHTML = `
+      <div class="section-header animate-in"><div><h1 class="section-title">Welcome to WebKiller</h1><p class="section-sub">Authorized web reconnaissance & security testing</p></div></div>
+      <div class="card animate-in dash-hero">
+        <div class="dash-hero-ic">◢◤</div>
+        <h2 class="dash-hero-t">Start your first scan</h2>
+        <p class="dash-hero-d">Point it at a target. It maps the attack surface — and in agent mode, tests it and confirms findings with proof.</p>
+        <div class="dash-modes">
+          <a href="#/scan" class="dash-mode"><div class="dm-ic">◇</div><div class="dm-t">AI agent <span class="badge badge-confirmed">beta</span></div><div class="dm-d">The agent picks the steps and confirms findings itself.</div></a>
+          <a href="#/scan" class="dash-mode"><div class="dm-ic">▤</div><div class="dm-t">Classic recon</div><div class="dm-d">A fixed pipeline you control, module by module.</div></a>
+        </div>
+      </div>
+      <div class="card animate-in" style="animation-delay:.05s"><div class="card-header"><span class="card-title">How it works</span></div>
+        <div class="dash-steps">
+          <div class="dash-step"><span class="ds-n">1</span><div><b>Enter a target</b><div class="ds-d"><span class="mono">example.com</span></div></div></div>
+          <div class="dash-step"><span class="ds-n">2</span><div><b>Pick a mode</b><div class="ds-d">classic or AI agent</div></div></div>
+          <div class="dash-step"><span class="ds-n">3</span><div><b>Review findings</b><div class="ds-d">confirmed, with PoC</div></div></div>
+        </div>
       </div>`;
     return;
   }
 
+  const findingsOf = s => Object.values(s.results || {}).reduce((n, r) => n + (r.items_count || 0), 0);
   $('#scanList').innerHTML = `
-    <div class="table-wrap"><table>
-      <thead><tr><th>Target</th><th>Profile</th><th>Status</th><th>Modules</th><th>Started</th><th></th></tr></thead>
-      <tbody>${scans.map(s => `
-        <tr>
-          <td class="mono">${esc(s.target)}</td>
-          <td><span class="badge badge-info">${esc(s.profile)}</span></td>
-          <td>${statusBadge(s.status)}</td>
-          <td>${s.modules_done || 0}/${s.modules_total || 0}</td>
-          <td>${timeAgo(s.started_at)}</td>
-          <td>
-            ${s.status === 'running'
-              ? `<a href="#/scan/${s.scan_id}" class="btn btn-sm btn-ghost">Watch</a>`
-              : `<a href="#/results/${s.scan_id}" class="btn btn-sm btn-ghost">Results</a>`}
-          </td>
-        </tr>`).join('')}
-      </tbody>
-    </table></div>`;
+    <div class="scan-rows">${scans.map(s => {
+      const err = s.status === 'error';
+      const href = s.status === 'running' ? `#/scan/${s.scan_id}` : `#/results/${s.scan_id}`;
+      const f = findingsOf(s);
+      const modeBadge = s.mode === 'ai' ? '<span class="badge badge-confirmed">AI</span>' : `<span class="badge badge-info">${esc(s.profile)}</span>`;
+      const prog = s.mode === 'ai' ? '' : `<span class="sr-find">${s.modules_done || 0}/${s.modules_total || 0} modules</span>`;
+      const find = err ? `<span class="sr-find none">—</span>` : (f > 0 ? `<span class="sr-find"><b>${f}</b> findings</span>` : (s.status === 'completed' ? '<span class="sr-find none">no findings</span>' : prog));
+      const sub = err ? 'failed' : (s.status === 'running' ? 'in progress' : 'completed');
+      return `<a href="${href}" class="scan-row">
+        <div class="sr-main"><div class="sr-target">${esc(s.target)} ${modeBadge}</div><div class="sr-sub">${sub}</div></div>
+        ${statusBadge(s.status)}
+        ${find}
+        <span class="sr-time">${timeAgo(s.started_at)}</span>
+        <span class="sr-go">${s.status === 'running' ? 'Watch →' : err ? 'Details →' : 'Results →'}</span>
+      </a>`;
+    }).join('')}</div>`;
 }
 
 /* ── NEW SCAN ──────────────────────── */
 
+function prettyModuleKey(k) {
+  return String(k).replace(/_confirm$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 async function renderNewScan() {
-  const profiles = await api('/profiles');
+  const [profiles, aiCfg, modData] = await Promise.all([api('/profiles'), api('/ai/settings'), api('/modules')]);
+  const ORDER = { passive: 0, quick: 1, full: 2, aggressive: 3, osint: 4 };
+  const sorted = [...profiles].sort((a, b) => (ORDER[a.name] ?? 9) - (ORDER[b.name] ?? 9));
+  const aiReady = !!(aiCfg && aiCfg.enabled && aiCfg.hasKey);
+  const metaByKey = {};
+  (modData.modules || []).forEach(m => { metaByKey[m.key] = m; });
+  const SEC_ORDER = ['Discovery', 'Mapping', 'Checks', 'Other'];
 
   app.innerHTML = `
     <div class="section-header">
       <div>
         <h1 class="section-title">New Scan</h1>
-        <p class="section-sub">Configure and launch a recon scan</p>
+        <p class="section-sub">Pick a target and a mode</p>
       </div>
     </div>
     <div class="card animate-in" style="max-width:720px;animation-delay:.05s">
       <div class="card-body">
         <div class="form-group">
-          <label class="form-label">Target Domain</label>
+          <label class="form-label">Target</label>
           <input class="form-input" id="targetInput" placeholder="example.com" autofocus>
         </div>
+
         <div class="form-group">
-          <label class="form-label">Scan Profile</label>
-          <div class="profile-grid" id="profileGrid">
-            ${profiles.map((p, i) => `
-              <div class="profile-card${i === 1 ? ' selected' : ''}" data-profile="${esc(p.name)}">
-                <div class="profile-name">${esc(p.name)}</div>
-                <div class="profile-desc">${esc(p.description)}</div>
-                <div class="profile-modules">${(p.modules || []).length} modules</div>
-              </div>`).join('')}
+          <label class="form-label">Mode</label>
+          <div class="choice-grid" id="modeGrid">
+            <div class="choice-card selected" data-mode="classic">
+              <div class="choice-name">Classic</div>
+              <div class="choice-desc">A fixed pipeline you control.</div>
+            </div>
+            <div class="choice-card" data-mode="ai">
+              <div class="choice-name">AI Agent <span class="choice-tag">beta</span></div>
+              <div class="choice-desc">The agent picks the steps.</div>
+              <div class="choice-status ${aiReady ? 'ok' : 'warn'}">${aiReady ? '✓ provider configured' : '⚠ needs a provider key'}</div>
+            </div>
           </div>
         </div>
+
+        <div class="form-group" id="classicProfile">
+          <label class="form-label">Profile</label>
+          <div class="np-seg" id="profileSeg">
+            ${sorted.map(p => { const n = (p.modules || []).length; return `
+              <button class="np-pill${p.name === 'quick' ? ' on' : ''}" data-profile="${esc(p.name)}" title="${esc(p.description)}">
+                <span class="pn">${esc(p.name)}</span><span class="pc">${n} module${n === 1 ? '' : 's'}</span>
+              </button>`; }).join('')}
+          </div>
+          <div class="np-plan" id="npPlan"></div>
+        </div>
+
+        <div class="form-group" id="aiScope" hidden>
+          <label class="form-label">What the agent may do</label>
+          <div class="choice-grid">
+            <div class="choice-card selected" data-aiscope="recon">
+              <div class="choice-name">Recon only</div>
+              <div class="choice-desc">Map the surface — no payloads sent.</div>
+            </div>
+            <div class="choice-card" data-aiscope="active">
+              <div class="choice-name">Active tests</div>
+              <div class="choice-desc">Also confirm vulnerabilities (intrusive).</div>
+            </div>
+          </div>
+          <div class="np-plan pb" id="aiPlaybook"></div>
+        </div>
+
         <div class="form-group">
-          <label class="form-label">Out of Scope (one per line, optional)</label>
+          <label class="form-label">Out of scope <span class="label-hint">— one per line, optional</span></label>
           <textarea class="form-textarea form-input" id="outScope" placeholder="staging.example.com&#10;internal.example.com"></textarea>
         </div>
         <button class="btn btn-primary btn-lg" id="startBtn" style="width:100%;justify-content:center;margin-top:var(--space-4)">
@@ -145,23 +199,110 @@ async function renderNewScan() {
     </div>
   `;
 
-  let selectedProfile = profiles[1]?.name || 'quick';
+  let selectedProfile = 'quick';
+  let scanMode = 'classic';
+  let aiScopeChoice = 'recon';
 
-  $$('.profile-card').forEach(card => {
-    card.addEventListener('click', () => {
-      $$('.profile-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedProfile = card.dataset.profile;
+  // Scan-plan preview: the chosen profile's modules grouped by section,
+  // greyed when disabled in Settings, dashed when a required tool is missing.
+  function renderPlan(profileName) {
+    const prof = profiles.find(p => p.name === profileName);
+    const keys = (prof && prof.modules) || [];
+    const bySec = {};
+    let off = 0, blocked = 0;
+    keys.forEach(k => {
+      const m = metaByKey[k];
+      const sec = (m && m.group) || 'Other';
+      (bySec[sec] = bySec[sec] || []).push({ key: k, m });
     });
+    const secHtml = SEC_ORDER.filter(s => bySec[s]).map(sec => {
+      const chips = bySec[sec].map(({ key, m }) => {
+        const label = m ? m.label : prettyModuleKey(key);
+        let cls = '', title = '';
+        if (m && m.status === 'blocked') { cls = 'blocked'; blocked++; title = `${m.tool} not installed`; }
+        else if (m && m.enabled === false) { cls = 'off'; off++; title = 'disabled in Settings'; }
+        if (m && m.intrusive) cls += ' intr';
+        return `<span class="np-chip ${cls}" title="${esc(title)}"><span class="dot"></span>${esc(label)}</span>`;
+      }).join('');
+      return `<div class="np-sec"><div class="np-sec-h">${sec}<span class="ln"></span></div><div class="np-chips">${chips}</div></div>`;
+    }).join('');
+    const notes = [];
+    if (off) notes.push(`${off} off`);
+    if (blocked) notes.push(`${blocked} need a tool`);
+    $('#npPlan').innerHTML = `
+      <div class="np-plan-h"><span class="t">Scan plan</span><span class="c">${keys.length} modules${notes.length ? ' · ' + notes.join(' · ') : ''} · <a href="#/settings">tune</a></span></div>
+      ${secHtml || '<div class="np-empty">No modules in this profile.</div>'}`;
+  }
+  renderPlan('quick');
+
+  // Agentic "playbook": how the agent will work, phase by phase, with the
+  // capabilities it MAY reach for — not a fixed checklist. The Confirm phase is
+  // locked unless the run allows active tests.
+  const PLAYBOOK = [
+    { name: 'Recon', desc: 'Enumerate subdomains, probe live hosts, map DNS', keys: ['subdomains_passive', 'subdomains_active', 'probe', 'portscan', 'osint_dns'] },
+    { name: 'Surface', desc: 'Collect URLs, brute-force paths, pull endpoints & params from JS', keys: ['urls', 'content', 'params', 'jsrecon'] },
+    { name: 'Fingerprint', desc: 'Identify tech stack, servers and WAF', keys: ['fingerprint', 'screenshots'] },
+    { name: 'Confirm', desc: 'Actively test the surface and prove vulnerabilities with evidence', intrusive: true, keys: ['vuln_signal', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'secret_verify'] },
+    { name: 'Report', desc: 'Summarize confirmed findings with proof-of-concept', keys: [] },
+  ];
+  function renderPlaybook(scope) {
+    const box = $('#aiPlaybook'); if (!box) return;
+    const rows = PLAYBOOK.map((ph, i) => {
+      const locked = ph.intrusive && scope !== 'active';
+      const chips = ph.keys.map(k => {
+        const m = metaByKey[k];
+        const label = m ? m.label : prettyModuleKey(k);
+        let cls = '';
+        if (m && m.status === 'blocked') cls = 'blocked';
+        else if (m && m.enabled === false) cls = 'off';
+        if (m && m.intrusive) cls += ' intr';
+        return `<span class="np-chip ${cls}"><span class="dot"></span>${esc(label)}</span>`;
+      }).join('');
+      return `<div class="pb-phase${locked ? ' locked' : ''}">
+        <div class="pb-num">${locked ? '🔒' : i + 1}</div>
+        <div class="pb-body">
+          <div class="pb-name">${ph.name}${locked ? ' <span class="pb-lock">unlocked with Active tests</span>' : ''}</div>
+          <div class="pb-desc">${esc(ph.desc)}</div>
+          ${ph.keys.length ? `<div class="np-chips">${chips}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    box.innerHTML = `
+      <div class="np-plan-h"><span class="t">Agent playbook</span><span class="c">the agent picks which steps to run · <a href="#/settings">tune tools</a></span></div>
+      <div class="pb-rail">${rows}</div>`;
+  }
+  renderPlaybook('recon');
+
+  const wireGroup = (sel, onPick) => $$(sel).forEach(card => card.addEventListener('click', () => {
+    $$(sel).forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    onPick(card);
+  }));
+  $$('#profileSeg .np-pill').forEach(pill => pill.addEventListener('click', () => {
+    $$('#profileSeg .np-pill').forEach(p => p.classList.remove('on'));
+    pill.classList.add('on');
+    selectedProfile = pill.dataset.profile;
+    renderPlan(selectedProfile);
+  }));
+  wireGroup('#aiScope .choice-card', c => { aiScopeChoice = c.dataset.aiscope; renderPlaybook(aiScopeChoice); });
+  wireGroup('#modeGrid .choice-card', c => {
+    scanMode = c.dataset.mode;
+    const ai = scanMode === 'ai';
+    $('#classicProfile').hidden = ai;
+    $('#aiScope').hidden = !ai;
   });
 
   $('#startBtn').addEventListener('click', async () => {
     const target = $('#targetInput').value.trim();
     if (!target) { toast('Enter a target domain', 'error'); return; }
+    if (scanMode === 'ai' && !aiReady) { toast('Set a provider key in Settings first', 'error'); location.hash = '/settings'; return; }
+    // In AI mode the "profile" only gates intrusive tools, so map the agent's
+    // scope choice onto a backend profile (aggressive = intrusive allowed).
+    const profile = scanMode === 'ai' ? (aiScopeChoice === 'active' ? 'aggressive' : 'quick') : selectedProfile;
     $('#startBtn').disabled = true;
     $('#startBtn').textContent = 'Launching...';
     const outScope = $('#outScope').value.split('\n').map(s => s.trim()).filter(Boolean);
-    const res = await api('/scan', { method: 'POST', body: { target, profile: selectedProfile, out_of_scope: outScope } });
+    const res = await api('/scan', { method: 'POST', body: { target, profile, out_of_scope: outScope, mode: scanMode } });
     if (res.scan_id) {
       location.hash = `/scan/${res.scan_id}`;
     } else {
@@ -177,7 +318,8 @@ async function renderNewScan() {
 async function renderScanProgress(scanId) {
   currentScanId = scanId;
   const scan = await api(`/scan/${scanId}`);
-  if (!scan || scan.error) { location.hash = '/'; return; }
+  if (!scan || !scan.status) { location.hash = "/"; return; } // a real 404 has no status; an errored scan keeps its status
+  if (scan.mode === 'ai') return renderAgenticProgress(scanId, scan);
 
   const profile = scan.profile || 'unknown';
   const moduleNames = Object.keys(scan.results || {});
@@ -186,7 +328,7 @@ async function renderScanProgress(scanId) {
     <div class="section-header">
       <div>
         <h1 class="section-title">${esc(scan.target)}</h1>
-        <p class="section-sub">Profile: <span class="badge badge-info">${esc(profile)}</span> · ${scan.modules_done}/${scan.modules_total} modules</p>
+        <p class="section-sub">Profile: <span class="badge badge-info">${esc(profile)}</span> · ${scan.mode === 'ai' ? '<span class="badge badge-confirmed">AI Agent</span>' : scan.modules_done + '/' + scan.modules_total + ' modules'}</p>
       </div>
       <div>${statusBadge(scan.status)}</div>
     </div>
@@ -266,11 +408,15 @@ function startSSE(scanId) {
     }
 
     if (ev.type === 'module_start') {
-      setStatus(`Scanning: ${ev.data}`, 'scanning');
+      let modLabel = ev.data;
+      try { modLabel = JSON.parse(ev.data).module || ev.data; } catch {}
+      setStatus(`Scanning: ${modLabel}`, 'scanning');
     }
     if (ev.type === 'module_done') {
       const scan = await api(`/scan/${scanId}`);
       if ($('#progressFill')) $('#progressFill').style.width = `${pct(scan)}%`;
+      const sub = $('.section-sub');
+      if (sub) sub.innerHTML = sub.innerHTML.replace(/\d+\/\d+ modules/, `${scan.modules_done}/${scan.modules_total} modules`);
       updateModuleResults(scan);
     }
   };
@@ -278,9 +424,191 @@ function startSSE(scanId) {
 
 /* ── RESULTS ──────────────────────── */
 
+/* Shared result views — used by the classic Results tabs AND the agentic
+   recon fold, so discovered data reads the same rich way in both modes. */
+async function resGrab(scanId, file) {
+  try {
+    const r = await fetch(`/api/scan/${scanId}/results/${file}`);
+    if (!r.ok) return file.endsWith('.jsonl') ? [] : '';
+    return file.endsWith('.jsonl') ? r.json() : r.text();
+  } catch { return file.endsWith('.jsonl') ? [] : ''; }
+}
+const resLines = s => String(s || '').split('\n').map(x => x.trim()).filter(Boolean);
+const resScClass = c => { const n = +c || 0; return n >= 500 ? 's5' : n >= 400 ? 's4' : n >= 300 ? 's3' : n >= 200 ? 's2' : 's0'; };
+const resHostOf = u => { try { return new URL(u).host; } catch { return ''; } };
+const resEmpty = m => `<div class="res-empty">${esc(m)}</div>`;
+const resCopyBtn = () => `<button class="res-mini" data-copyall>Copy all</button>`;
+function resWireSearch(scopeEl) {
+  const input = scopeEl.querySelector('[data-search]');
+  const apply = () => {
+    const q = (input ? input.value : '').trim().toLowerCase();
+    let shown = 0;
+    scopeEl.querySelectorAll('[data-hay]').forEach(row => {
+      const ok = (!q || row.dataset.hay.includes(q)) && row.dataset.filtered !== '1';
+      row.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    const live = scopeEl.querySelector('[data-shown]');
+    if (live) live.textContent = shown;
+  };
+  if (input) input.addEventListener('input', apply);
+  return apply;
+}
+function resWireCopyAll(scopeEl, getItems) {
+  const b = scopeEl.querySelector('[data-copyall]');
+  if (!b) return;
+  b.addEventListener('click', () => {
+    try { navigator.clipboard.writeText(getItems().join('\n')); const o = b.textContent; b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = o, 1200); } catch {}
+  });
+}
+
+// HOSTS: subdomains + live + hosts, merged
+async function resHostsView(scanId, content) {
+  const [subTxt, recs] = await Promise.all([resGrab(scanId, 'subdomains.txt'), resGrab(scanId, 'hosts.jsonl')]);
+  const subs = resLines(subTxt);
+  const byHost = {};
+  (recs || []).forEach(r => {
+    const h = r.host || resHostOf(r.url || '');
+    if (!h) return;
+    const prev = byHost[h];
+    if (!prev || ((r.status_code || 0) && !(prev.status_code || 0))) byHost[h] = r;
+  });
+  const all = [...new Set([...subs, ...Object.keys(byHost)])];
+  if (!all.length) { content.innerHTML = resEmpty('No hosts discovered yet.'); return; }
+  const isLive = h => (byHost[h]?.status_code || 0) >= 200 && (byHost[h]?.status_code || 0) < 400;
+  const liveCount = all.filter(isLive).length;
+  all.sort((a, b) => (isLive(a) ? 0 : 1) - (isLive(b) ? 0 : 1) || a.localeCompare(b));
+  const rows = all.map(h => {
+    const r = byHost[h] || {};
+    const sc = r.status_code || 0;
+    const dot = sc >= 200 && sc < 400 ? 'up' : sc >= 400 ? 'warn' : 'down';
+    const live = sc >= 200 && sc < 400;
+    const tech = (r.tech || []).slice(0, 3).map(t => `<span class="res-tag">${esc(t)}</span>`).join('');
+    const srv = r.webserver ? `<span class="res-tag srv">${esc(r.webserver)}</span>` : '';
+    const open = (live && r.url) ? `<a class="res-open" href="${esc(r.url)}" target="_blank" rel="noopener">open ↗</a>` : '';
+    return `<div class="res-host" data-hay="${esc(h.toLowerCase())}">
+      <span class="res-dot ${dot}"></span>
+      <span class="res-hname${live ? '' : ' dim'}">${esc(h)}</span>
+      <span class="res-sc ${resScClass(sc)}">${sc || '—'}</span>
+      <span class="res-htitle">${esc(r.title || '')}</span>
+      <span class="res-hr">${tech}${srv}${open}</span>
+    </div>`;
+  }).join('');
+  content.innerHTML = `
+    <div class="res-bar">
+      <div class="res-search"><span class="ic">⌕</span><input data-search placeholder="Filter hosts…"></div>
+      <span class="res-count"><b data-shown>${all.length}</b> hosts · ${liveCount} live</span>
+      ${resCopyBtn()}
+    </div>
+    <div class="res-list">${rows}</div>`;
+  resWireSearch(content)();
+  resWireCopyAll(content, () => all);
+}
+
+// ENDPOINTS: urls + params + js endpoints, merged
+async function resEndpointsView(scanId, content) {
+  const CAP = 500;
+  const [urlTxt, paramTxt, jsTxt] = await Promise.all([resGrab(scanId, 'urls.txt'), resGrab(scanId, 'params.txt'), resGrab(scanId, 'js_endpoints.txt')]);
+  const urls = resLines(urlTxt);
+  const jsSet = new Set(resLines(jsTxt));
+  const pmap = {};
+  resLines(paramTxt).forEach(l => { const i = l.indexOf('?'); if (i < 0) return; const base = l.slice(0, i); const p = l.slice(i + 1).split('=')[0].split('&')[0]; if (p) (pmap[base] = pmap[base] || new Set()).add(p); });
+  const all = [...new Set([...urls, ...Object.keys(pmap), ...jsSet])].sort();
+  if (!all.length) { content.innerHTML = resEmpty('No endpoints collected yet.'); return; }
+  const withParams = all.filter(u => { const b = u.split('?')[0]; return (pmap[b] && pmap[b].size) || u.includes('?'); }).length;
+  const shown = all.slice(0, CAP);
+  const rows = shown.map(u => {
+    const base = u.split('?')[0];
+    const params = new Set(pmap[base] ? [...pmap[base]] : []);
+    const qi = u.indexOf('?');
+    if (qi >= 0) u.slice(qi + 1).split('&').forEach(kv => { const k = kv.split('=')[0]; if (k) params.add(k); });
+    const host = resHostOf(u);
+    const path = host ? u.replace(/^https?:\/\/[^/]+/, '') || '/' : u;
+    const pills = [...params].slice(0, 6).map(p => `<span class="p">${esc(p)}</span>`).join('');
+    const src = jsSet.has(u) ? '<span class="res-src js">JS</span>' : '';
+    return `<div class="res-ep" data-hay="${esc(u.toLowerCase())}">
+      <span class="res-url"><span class="host">${esc(host)}</span>${esc(path)}</span>
+      <span class="res-params">${pills}</span>
+      ${src || '<span></span>'}
+    </div>`;
+  }).join('');
+  content.innerHTML = `
+    <div class="res-bar">
+      <div class="res-search"><span class="ic">⌕</span><input data-search placeholder="Filter endpoints…"></div>
+      <span class="res-count"><b data-shown>${shown.length}</b> endpoints · ${withParams} with params</span>
+      ${resCopyBtn()}
+    </div>
+    <div class="res-list">${rows}</div>
+    ${all.length > CAP ? `<div class="res-cap">Showing first ${CAP} of ${all.length} — use the filter to narrow.</div>` : ''}`;
+  resWireSearch(content)();
+  resWireCopyAll(content, () => all);
+}
+
+// Merge findings.jsonl + confirmed.jsonl, dedupe by endpoint/param/class.
+// Single source of truth so the Leads badge and the rendered list always agree.
+function resMergeFindings(find, conf) {
+  const key = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}`;
+  const map = new Map();
+  (conf || []).forEach(f => map.set(key(f), { ...f, _kind: 'confirmed' }));
+  (find || []).forEach(f => { const k = key(f); if (!map.has(k)) map.set(k, { ...f, _kind: f.type === 'dast_confirmed' ? 'confirmed' : 'potential' }); });
+  return [...map.values()];
+}
+
+// FINDINGS: findings + confirmed, merged & deduped (confirmed wins)
+async function resFindingsView(scanId, content, opts = {}) {
+  const SEV = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+  const [find, conf] = await Promise.all([resGrab(scanId, 'findings.jsonl'), resGrab(scanId, 'confirmed.jsonl')]);
+  let all = resMergeFindings(find, conf);
+  if (opts.only) all = all.filter(f => f._kind === opts.only);
+  all.sort((a, b) => (SEV[(a.severity || 'info').toLowerCase()] ?? 5) - (SEV[(b.severity || 'info').toLowerCase()] ?? 5));
+  if (!all.length) { content.innerHTML = resEmpty(opts.emptyMsg || 'No findings — the surface looked clean, or active checks were off.'); return; }
+  const nConf = all.filter(f => f._kind === 'confirmed').length;
+  const cards = all.map(f => `<div data-hay="${esc((String(f.name || '') + ' ' + (f.url || '') + ' ' + (f.vuln_class || '')).toLowerCase())}" data-kind="${f._kind}">${agFindingCard(f)}</div>`).join('');
+  const bar = opts.only ? '' : `
+      <button class="res-chip on" data-fk="all">All <span class="n">${all.length}</span></button>
+      <button class="res-chip" data-fk="confirmed">Confirmed <span class="n">${nConf}</span></button>
+      <button class="res-chip" data-fk="potential">Potential <span class="n">${all.length - nConf}</span></button>`;
+  content.innerHTML = `
+    <div class="res-bar">
+      <div class="res-search"><span class="ic">⌕</span><input data-search placeholder="Filter findings…"></div>
+      ${bar}
+    </div>
+    <div class="res-finds">${cards}</div>`;
+  const apply = resWireSearch(content);
+  content.querySelectorAll('.ag-fh').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+  content.querySelectorAll('.ag-poc-actions .btn[data-copy]').forEach(b => b.addEventListener('click', () => { try { navigator.clipboard.writeText(b.dataset.copy); const o = b.textContent; b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = o, 1200); } catch {} }));
+  content.querySelectorAll('[data-fk]').forEach(ch => ch.addEventListener('click', () => {
+    content.querySelectorAll('[data-fk]').forEach(x => x.classList.remove('on'));
+    ch.classList.add('on');
+    const k = ch.dataset.fk;
+    content.querySelectorAll('[data-kind]').forEach(card => { card.dataset.filtered = (k === 'all' || card.dataset.kind === k) ? '' : '1'; });
+    apply();
+  }));
+}
+
+// OSINT: whois + grouped DNS records
+async function resOsintView(scanId, content) {
+  const recs = await resGrab(scanId, 'osint.jsonl');
+  if (!recs || !recs.length) { content.innerHTML = resEmpty('No OSINT collected — run the DNS OSINT module.'); return; }
+  const whois = recs.find(r => r.type === 'whois');
+  const dns = recs.filter(r => r.type === 'dns');
+  let html = '<div class="res-osint">';
+  if (dns.length) {
+    const rows = dns.map(d => `<div class="k">${esc(d.record_type)}</div><div class="v">${(d.records || []).map(x => esc(typeof x === 'object' ? JSON.stringify(x) : String(x))).join('<br>')}</div>`).join('');
+    html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">DNS</span> Records</div><div class="res-dns">${rows}</div></div>`;
+  }
+  if (whois) {
+    const data = typeof whois.data === 'string' ? whois.data : JSON.stringify(whois.data, null, 2);
+    html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">WHOIS</span> ${esc(whois.domain || '')}</div><div class="res-whois">${esc(data)}</div></div>`;
+  }
+  html += '</div>';
+  content.innerHTML = html;
+}
+
 async function renderResults(scanId) {
   const scan = await api(`/scan/${scanId}`);
-  if (!scan || scan.error) { location.hash = '/'; return; }
+  if (!scan || !scan.status) { location.hash = "/"; return; } // a real 404 has no status; an errored scan keeps its status
+  if (scan.mode === 'ai') return renderAgenticResults(scanId, scan);
 
   app.innerHTML = `
     <div class="section-header">
@@ -297,66 +625,96 @@ async function renderResults(scanId) {
     <div id="resultContent"></div>
   `;
 
+  // Five consolidated views instead of ten overlapping file-dumps:
+  // Hosts (subdomains+live+hosts), Endpoints (urls+params+js), Findings
+  // (findings+confirmed), OSINT, AI Assist.
   const tabs = [
-    { id: 'subdomains', label: 'Subdomains', file: 'subdomains.txt' },
-    { id: 'live', label: 'Live Hosts', file: 'live.txt' },
-    { id: 'urls', label: 'URLs', file: 'urls.txt' },
-    { id: 'findings', label: 'Findings', file: 'findings.jsonl' },
-    { id: 'confirmed', label: 'Confirmed', file: 'confirmed.jsonl' },
-    { id: 'hosts', label: 'Hosts', file: 'hosts.jsonl' },
-    { id: 'osint', label: 'OSINT', file: 'osint.jsonl' },
-    { id: 'js', label: 'JS Recon', file: 'jsrecon.jsonl' },
-    { id: 'params', label: 'Params', file: 'params.txt' },
+    { id: 'hosts', label: 'Hosts' },
+    { id: 'endpoints', label: 'Endpoints' },
+    { id: 'findings', label: 'Findings' },
+    { id: 'osint', label: 'OSINT' },
+    { id: 'ai', label: 'AI Assist' },
   ];
+
+  function renderMarkdown(md) {
+    const lines = String(md || '').split('\n');
+    const inline = t => esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    let html = '', inList = false;
+    for (const line of lines) {
+      if (/^\s*[-*]\s+/.test(line)) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(line.replace(/^\s*[-*]\s+/, ''))}</li>`; continue; }
+      if (inList) { html += '</ul>'; inList = false; }
+      const h = line.match(/^(#{1,4})\s+(.*)/);
+      if (h) { const lvl = Math.min(h[1].length + 1, 6); html += `<h${lvl} class="md-h">${inline(h[2])}</h${lvl}>`; continue; }
+      if (line.trim()) html += `<p>${inline(line)}</p>`;
+    }
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  async function loadAiTab(content) {
+    const cfg = await api('/ai/settings');
+    if (!cfg.enabled || !cfg.hasKey) {
+      content.innerHTML = `<div class="empty-state"><div class="empty-icon">✦</div><div class="empty-text">AI is ${cfg.enabled ? 'missing an API key' : 'turned off'}</div><a href="#/settings" class="btn btn-primary btn-sm">Open AI Settings</a></div>`;
+      return;
+    }
+    content.innerHTML = `
+      <div class="ai-actions">
+        <button class="btn btn-primary btn-sm" id="aiGenReport">Generate Report</button>
+        <button class="btn btn-ghost btn-sm" id="aiGenTriage">Triage Findings</button>
+        <span id="aiPanelStatus" class="test-status"></span>
+      </div>
+      <div id="aiOutput"></div>`;
+
+    async function run(kind) {
+      const status = $('#aiPanelStatus');
+      $('#aiGenReport').disabled = true; $('#aiGenTriage').disabled = true;
+      status.textContent = 'Asking the model…'; status.className = 'test-status testing';
+      let res;
+      try { res = await api(`/scan/${scanId}/ai/${kind}`, { method: 'POST' }); }
+      catch { res = { ok: false, error: 'request failed' }; }
+      $('#aiGenReport').disabled = false; $('#aiGenTriage').disabled = false;
+      if (!res.ok) { status.textContent = `✗ ${res.error || 'failed'}`; status.className = 'test-status fail'; return; }
+      const tok = res.usage && res.usage.total_tokens ? ` · ${res.usage.total_tokens} tokens` : '';
+      status.textContent = `✓ done${tok}`; status.className = 'test-status ok';
+      if (kind === 'report') {
+        $('#aiOutput').innerHTML = `<div class="card"><div class="card-body md-body">${renderMarkdown(res.markdown)}</div></div>`;
+      } else {
+        const items = res.items || [];
+        const rows = items.map(it => `
+          <div class="finding-row"${it.keep === false ? ' style="opacity:.5"' : ''}>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">${severityBadge(it.severity || 'info')}<span class="badge badge-info">P${it.priority}</span>${it.keep === false ? '<span class="badge badge-medium">likely FP</span>' : ''}</div>
+            <div style="flex:1">
+              <div class="finding-name">${esc(it.name)}</div>
+              <div class="finding-url">${esc(it.url || '')}</div>
+              ${it.reason ? `<div class="finding-evidence">${esc(it.reason)}</div>` : ''}
+            </div>
+          </div>`).join('');
+        $('#aiOutput').innerHTML = `<div style="margin:0 0 12px;color:var(--text-secondary);font-size:var(--text-sm)">${items.length} ranked · ${res.total} total findings</div><div class="card">${rows || '<div class="empty-state"><div class="empty-text">No findings to triage</div></div>'}</div>`;
+      }
+    }
+    $('#aiGenReport').addEventListener('click', () => run('report'));
+    $('#aiGenTriage').addEventListener('click', () => run('triage'));
+  }
 
   async function loadTab(tab) {
     $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab.id));
     const content = $('#resultContent');
-
+    content.innerHTML = resEmpty('Loading…');
     try {
-      const data = await fetch(`/api/scan/${scanId}/results/${tab.file}`).then(r => r.ok ? (tab.file.endsWith('.jsonl') ? r.json() : r.text()) : null);
-      if (!data || (typeof data === 'string' && !data.trim()) || (Array.isArray(data) && !data.length)) {
-        content.innerHTML = '<div class="empty-state"><div class="empty-text">No data in this file</div></div>';
-        return;
-      }
-
-      if (tab.file.endsWith('.jsonl')) {
-        if (tab.id === 'findings' || tab.id === 'confirmed') {
-          content.innerHTML = `<div class="card">${data.map(f => `
-            <div class="finding-row">
-              <div>${severityBadge(f.severity || 'info')}${f.type === 'dast_confirmed' || tab.id === 'confirmed' ? ' <span class="badge badge-confirmed">confirmed</span>' : ''}</div>
-              <div style="flex:1">
-                <div class="finding-name">${esc(f.name || f.vuln_class || f.template_id || 'Unknown')}</div>
-                <div class="finding-url">${esc(f.url || '')}</div>
-                ${f.evidence ? `<div class="finding-evidence">${esc(JSON.stringify(f.evidence).slice(0,200))}</div>` : ''}
-              </div>
-            </div>`).join('')}</div>`;
-        } else {
-          content.innerHTML = `<div class="table-wrap"><table>
-            <thead><tr>${Object.keys(data[0] || {}).map(k => `<th>${esc(k)}</th>`).join('')}</tr></thead>
-            <tbody>${data.slice(0, 200).map(row => `<tr>${Object.values(row).map(v =>
-              `<td class="mono">${esc(typeof v === 'object' ? JSON.stringify(v) : String(v)).slice(0,100)}</td>`
-            ).join('')}</tr>`).join('')}</tbody>
-          </table></div>`;
-        }
-      } else {
-        const lines = data.split('\n').filter(Boolean);
-        content.innerHTML = `
-          <div style="margin-bottom:var(--space-3);color:var(--text-secondary);font-size:var(--text-sm)">${lines.length} items</div>
-          <div class="terminal" style="max-height:600px">
-            <div class="terminal-bar"><div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot amber"></div><div class="terminal-dot green"></div></div><div class="terminal-title">${esc(tab.file)}</div></div>
-            <div class="terminal-body">${lines.map(l => `<div class="terminal-line">${esc(l)}</div>`).join('')}</div>
-          </div>`;
-      }
+      if (tab.id === 'ai') return await loadAiTab(content);
+      if (tab.id === 'hosts') return await resHostsView(scanId, content);
+      if (tab.id === 'endpoints') return await resEndpointsView(scanId, content);
+      if (tab.id === 'findings') return await resFindingsView(scanId, content);
+      if (tab.id === 'osint') return await resOsintView(scanId, content);
     } catch (e) {
-      content.innerHTML = `<div class="empty-state"><div class="empty-text">Error loading data</div></div>`;
+      content.innerHTML = resEmpty('Error loading data.');
     }
   }
 
   const tabsEl = $('#resultTabs');
   for (const tab of tabs) {
     const el = document.createElement('div');
-    el.className = 'tab' + (tab.id === 'subdomains' ? ' active' : '');
+    el.className = 'tab' + (tab.id === 'hosts' ? ' active' : '');
     el.dataset.tab = tab.id;
     el.innerHTML = `${tab.label}`;
     el.addEventListener('click', () => loadTab(tab));
@@ -369,20 +727,27 @@ async function renderResults(scanId) {
 /* ── TOOLS ──────────────────────── */
 
 async function renderTools() {
+  await drawTools();
+}
+
+async function drawTools() {
   const tools = await api('/tools');
 
   const installed = tools.filter(t => t.installed).length;
   const total = tools.length;
+  // Missing first, so the gaps the user needs to act on are at the top.
+  const sorted = [...tools].sort((a, b) => (a.installed === b.installed ? 0 : a.installed ? 1 : -1));
 
   app.innerHTML = `
     <div class="section-header animate-in">
       <div>
         <h1 class="section-title">Tools Registry</h1>
-        <p class="section-sub">${installed}/${total} tools installed</p>
+        <p class="section-sub">${installed}/${total} tools installed${installed < total ? ` · ${total - installed} missing` : ''}</p>
       </div>
+      <button class="btn btn-ghost btn-sm" id="toolsRefresh">Refresh</button>
     </div>
     <div class="card animate-in" style="animation-delay:.05s">
-      ${tools.map(t => `
+      ${sorted.map(t => `
         <div class="tool-row">
           <div>
             <div class="tool-name">${esc(t.name)}</div>
@@ -395,7 +760,572 @@ async function renderTools() {
         </div>`).join('')}
     </div>
   `;
+
+  $('#toolsRefresh').addEventListener('click', async () => {
+    const btn = $('#toolsRefresh');
+    btn.disabled = true; btn.textContent = 'Refreshing…';
+    try { await fetch('/api/tools/refresh', { method: 'POST' }); } catch { /* ignore */ }
+    drawTools();
+  });
 }
+
+/* ── AI SETTINGS ──────────────────────── */
+
+const SET_GO_PATH = {
+  subfinder: 'github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest',
+  dnsx: 'github.com/projectdiscovery/dnsx/cmd/dnsx@latest',
+  httpx: 'github.com/projectdiscovery/httpx/cmd/httpx@latest',
+  naabu: 'github.com/projectdiscovery/naabu/v2/cmd/naabu@latest',
+  katana: 'github.com/projectdiscovery/katana/cmd/katana@latest',
+  nuclei: 'github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest',
+  gau: 'github.com/lc/gau/v2/cmd/gau@latest',
+  ffuf: 'github.com/ffuf/ffuf/v2@latest',
+  dalfox: 'github.com/hahwul/dalfox/v2@latest',
+  gowitness: 'github.com/sensepost/gowitness@latest',
+};
+const SET_PIPX = { arjun: true, ghauri: true, wafw00f: true };
+
+function setInstallCmd(tool, mode) {
+  if (mode === 'go' && SET_GO_PATH[tool]) return `go install ${SET_GO_PATH[tool]}`;
+  if (mode === 'pipx') return `pipx install ${tool}`;
+  if (mode === 'pip') return `pip install ${tool}`;
+  if (mode === 'apt') return `sudo apt install ${tool}`;
+  return `brew install ${tool}`;
+}
+
+// Build install options for a tool, ordered by what's actually on THIS machine.
+// Go tools prefer `go install`, Python tools prefer pipx; brew/apt fill in.
+function setInstallers(tool, platform) {
+  const has = (platform && platform.installers) || {};
+  const os = (platform && platform.os) || 'darwin';
+  // Only list package managers that CAN exist on this OS. apt is Linux-only, so
+  // on macOS it is never shown (not even "not detected" — that would be absurd).
+  // brew works on macOS + Linux; go/pipx/pip are cross-platform. Among the
+  // OS-possible ones, we still mark honestly whether each is installed.
+  const osOk = { brew: os === 'darwin' || os === 'linux', apt: os === 'linux', go: true, pipx: true, pip: true };
+  const opts = [];
+  const push = (mode, label, avail) => { if (osOk[mode]) opts.push({ mode, label, avail: !!avail, cmd: setInstallCmd(tool, mode) }); };
+  if (SET_PIPX[tool]) {
+    push('pipx', 'pipx', has.pipx); push('pip', 'pip', has.pip); push('brew', 'Homebrew', has.brew);
+  } else {
+    if (SET_GO_PATH[tool]) push('go', 'Go', has.go);
+    push('brew', 'Homebrew', has.brew); push('apt', 'apt', has.apt);
+  }
+  const avail = opts.filter(o => o.avail), rest = opts.filter(o => !o.avail);
+  return { options: [...avail, ...rest], anyAvail: avail.length > 0 };
+}
+
+async function renderSettings() {
+  const [data, s] = await Promise.all([api('/modules'), api('/ai/settings')]);
+  const modules = data.modules || [];
+  const glob = data.global || {};
+  const presets = s.presets || {};
+  const suggested = s.suggestedModels || {};
+  const presetKeys = Object.keys(presets);
+
+  const total = modules.length;
+  const blocked = modules.filter(m => m.status === 'blocked').length;
+  const ready = total - blocked;
+  const platform = data.platform || {};
+
+  const GROUPS = ['Discovery', 'Mapping', 'Checks'];
+
+  // ---- per-module param field ----
+  function fieldHtml(m, p) {
+    const disabled = m.status === 'blocked' ? 'disabled' : '';
+    const val = m.values[p.key];
+    if (p.type === 'bool') {
+      const on = val === true || val === 'true';
+      return `<div class="set-field"><label>${esc(p.label)}</label>
+        <button class="set-sw" role="switch" aria-checked="${on}" data-mod="${esc(m.key)}" data-param="${esc(p.key)}" data-type="bool" ${disabled} aria-label="${esc(p.label)}"></button></div>`;
+    }
+    const wideCls = (p.type === 'file' || p.key === 'user_agent' || p.key === 'oob_url') ? ' wide' : '';
+    const unit = p.unit ? `<span class="unit">${esc(p.unit)}</span>` : '';
+    let ph = '';
+    if (p.type === 'file') ph = 'path to a .txt list — blank = built-in';
+    else if (p.def != null) ph = `default ${p.def}`;
+    else if (p.hint) ph = p.hint;
+    const inputType = p.type === 'number' ? 'number' : 'text';
+    const hint = p.inheritsGlobal ? '<span class="help">— global default</span>' : (p.hint && p.type !== 'file' ? `<span class="help">— ${esc(p.hint)}</span>` : '');
+    const inherit = p.inheritsGlobal ? '<span class="set-inherit">↳ inherits global — leave blank to use it</span>' : '';
+    return `<div class="set-field${wideCls}">
+      <label>${esc(p.label)} ${hint}</label>
+      <div class="set-inwrap"><input type="${inputType}" value="${val != null ? esc(val) : ''}" placeholder="${esc(ph)}" data-mod="${esc(m.key)}" data-param="${esc(p.key)}" data-type="${esc(p.type)}" ${disabled}>${unit}</div>
+      ${inherit}
+    </div>`;
+  }
+
+  function badgeHtml(m) {
+    const t = m.tool || (m.altTool ? `${m.tool}` : '');
+    if (m.status === 'builtin') return `<span class="set-tbadge builtin">◆ built-in</span>`;
+    if (m.status === 'ready') return `<span class="set-tbadge ready">● ${esc(m.tool)}${m.altTool ? '/' + esc(m.altTool) : ''}</span>`;
+    if (m.status === 'fallback') return `<span class="set-tbadge fallback">▲ ${esc(m.tool)} missing · built-in</span>`;
+    return `<span class="set-tbadge blocked">✕ ${esc(m.tool)} · not installed</span>`;
+  }
+
+  function bodyHtml(m) {
+    let head = '';
+    if (m.status === 'blocked') {
+      const inst = setInstallers(m.tool, platform);
+      const sel = inst.options.map((o, i) => `<option value="${o.mode}" ${i === 0 ? 'selected' : ''}>${esc(o.label)}${o.avail ? '' : ' — not detected'}</option>`).join('');
+      head = `<div class="set-install-card">
+        <div class="hd2"><span>✕</span> ${esc(m.tool)} is required and not installed — this module is off until you install it.</div>
+        ${inst.anyAvail ? '' : '<div class="set-sub" style="color:var(--accent-amber);margin-bottom:8px">No package manager detected on this machine — install one (e.g. Homebrew or Go) first.</div>'}
+        <div class="set-install-row">
+          <select data-installsel="${esc(m.key)}">${sel}</select>
+          <div class="set-cmd"><span data-cmd="${esc(m.key)}">${esc(inst.options[0].cmd)}</span><button class="copy" data-copy="${esc(m.key)}">Copy</button></div>
+        </div>
+        <div class="set-install-row"><span class="set-recheck"><button class="set-mini" data-recheck="1">Re-check tools</button> not found on PATH</span></div>
+      </div>`;
+    } else if (m.status === 'fallback') {
+      head = `<div class="set-fallback-note"><span style="color:var(--accent-amber)">▲</span><div><b>Running on the built-in fallback.</b> It works; <code>${esc(m.tool)}</code> is faster and finds more. Your settings below still apply.</div></div>`;
+    } else if (m.intrusive) {
+      head = `<div class="set-note" style="margin-bottom:var(--space-3);color:var(--text-muted)">Active check — obeys the global rate cap. <b style="color:var(--text-readable)">Run only with authorization.</b></div>`;
+    }
+    const fields = (m.params || []).map(p => fieldHtml(m, p)).join('');
+    const form = fields
+      ? `<div class="set-form${m.status === 'blocked' ? ' disabled' : ''}">${fields}</div>`
+      : `<div class="set-note" style="color:var(--text-muted)">No parameters — this module runs with sensible defaults.</div>`;
+    const foot = m.status === 'blocked' ? '' :
+      `<div class="set-mod-foot"><button class="set-btn primary" data-saveone>Save</button><button class="set-btn ghost" data-reset="${esc(m.key)}">Reset</button></div>`;
+    return head + form + foot;
+  }
+
+  function modHtml(m) {
+    const checked = m.enabled && m.status !== 'blocked';
+    const disabledSw = m.status === 'blocked' ? 'disabled' : '';
+    const tag = m.intrusive ? '<span class="set-tag intr">intrusive</span>' : '';
+    const hay = `${m.label} ${m.key} ${m.tool || ''} ${m.desc}`.toLowerCase();
+    return `<div class="set-mod" data-mod="${esc(m.key)}" data-group="${esc(m.group)}" data-status="${esc(m.status)}" data-hay="${esc(hay)}">
+      <div class="set-mod-h">
+        <button class="set-sw" role="switch" aria-checked="${checked}" data-enable="${esc(m.key)}" ${disabledSw} aria-label="Enable ${esc(m.label)}"></button>
+        <button class="set-expand"><span><span class="set-name">${esc(m.label)} ${tag}</span><span class="set-desc">${esc(m.desc)}</span></span></button>
+        <div class="set-status">${badgeHtml(m)}</div>
+        <span class="set-caret">▸</span>
+      </div>
+      <div class="set-mod-body">${bodyHtml(m)}</div>
+    </div>`;
+  }
+
+  function groupHtml(g) {
+    const ms = modules.filter(m => m.group === g);
+    if (!ms.length) return '';
+    const on = ms.filter(m => m.enabled && m.status !== 'blocked').length;
+    const extra = g === 'Checks' ? ' · active testing' : '';
+    return `<div class="set-group" data-group="${g}">
+      <button class="set-group-h"><span class="caret">▾</span><span class="gn">${g}</span><span class="gc">${on} / ${ms.length} enabled${extra}</span><span class="ln"></span></button>
+      ${ms.map(modHtml).join('')}
+    </div>`;
+  }
+
+  app.innerHTML = `
+  <div class="set-scope animate-in">
+    <div class="section-header">
+      <div>
+        <h1 class="section-title">Settings</h1>
+        <p class="section-sub">Modules, request defaults, and the AI provider</p>
+      </div>
+    </div>
+    <div class="set-summary">
+      <span class="set-sm">${total} <b>modules</b></span>
+      <span class="set-sm ok">${ready} <b>ready</b></span>
+      ${blocked ? `<span class="set-sm warn">${blocked} <b>need a tool</b></span>` : ''}
+    </div>
+    ${blocked ? `<div class="set-banner"><span class="ic">⚠</span><div class="t"><b>${blocked} helper tool${blocked > 1 ? 's' : ''} missing.</b> Modules without a built-in fallback stay off until installed.</div><button class="set-mini accent" data-gotodeps="1">Install tools</button></div>` : ''}
+
+    <div class="set-tabs" role="tablist">
+      <button class="on" data-tab="modules">Modules</button>
+      <button data-tab="deps">Dependencies</button>
+      <button data-tab="global">Global defaults</button>
+      <button data-tab="ai">AI provider</button>
+    </div>
+
+    <!-- MODULES -->
+    <div class="set-pane on" data-pane="modules">
+      <div class="set-toolbar">
+        <div class="set-search"><span class="ic">⌕</span><input id="setSearch" placeholder="Search modules — name, tool, or what it checks…"></div>
+        <button class="set-chip on" data-filter="all">All <span class="n">${total}</span></button>
+        <button class="set-chip" data-filter="ready">Ready <span class="n">${ready}</span></button>
+        ${blocked ? `<button class="set-chip" data-filter="blocked">Needs a tool <span class="n">${blocked}</span></button>` : ''}
+      </div>
+      ${GROUPS.map(groupHtml).join('')}
+    </div>
+
+    <!-- DEPENDENCIES -->
+    <div class="set-pane" data-pane="deps">
+      <div id="setDepsBody"><div class="res-empty">Loading…</div></div>
+    </div>
+
+    <!-- GLOBAL -->
+    <div class="set-pane" data-pane="global">
+      <div class="set-panel">
+        <h4>Scope <span class="pri">most important</span></h4>
+        <div class="set-sub">Hosts the scanner must never touch, even if discovered. One per line · wildcards allowed.</div>
+        <textarea class="set-ta" id="gScope" placeholder="*.prod.example.com">${esc(glob.out_of_scope || '')}</textarea>
+      </div>
+      <div class="set-panel">
+        <h4>Request defaults</h4>
+        <div class="set-gform">
+          <div class="set-field wide"><label>User-Agent</label><div class="set-inwrap"><input id="gUA" value="${esc(glob.user_agent || '')}"></div></div>
+          <div class="set-field"><label>Rate limit</label><div class="set-inwrap"><input id="gRate" type="number" value="${esc(glob.rate_limit)}"><span class="unit">req/s</span></div><span class="set-sub">hard cap for every module</span></div>
+          <div class="set-field"><label>Concurrency</label><div class="set-inwrap"><input id="gConc" type="number" value="${esc(glob.concurrency)}"></div></div>
+          <div class="set-field"><label>Default timeout</label><div class="set-inwrap"><input id="gTimeout" type="number" value="${esc(glob.timeout)}"><span class="unit">s</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI -->
+    <div class="set-pane" data-pane="ai">
+      <div class="set-panel">
+        <h4>AI provider <span class="set-sub" style="margin:0 0 0 6px">— powers agentic scans, report &amp; triage</span></h4>
+        <div class="setting-row" style="margin-bottom:var(--space-3)">
+          <div><div class="setting-title">Enable AI features</div><div class="setting-hint">Off keeps classic mode exactly as it is.</div></div>
+          <label class="toggle"><input type="checkbox" id="aiEnabled" ${s.enabled ? 'checked' : ''}><span class="toggle-track"></span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provider</label>
+          <select class="form-select" id="aiProvider">
+            ${presetKeys.map(k => `<option value="${esc(k)}" ${s.provider === k ? 'selected' : ''}>${esc(presets[k].label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">API Base URL</label><input class="form-input" id="aiBaseURL" value="${esc(s.baseURL || '')}" placeholder="https://..."></div>
+        <div class="form-group"><label class="form-label">API Key</label><input class="form-input" id="aiKey" type="password" placeholder="${s.hasKey ? '•••• ' + esc(s.keyMasked) + ' — leave blank to keep' : 'paste your API key'}">${s.insecureKey ? '<div class="inline-warn">⚠ stored unencrypted — dev run without Electron keychain</div>' : ''}</div>
+        <div class="form-group"><label class="form-label">Model <span class="label-hint">— report &amp; triage</span></label><input class="form-input" id="aiModel" list="modelSuggest" value="${esc(s.model || '')}" placeholder="model id"><datalist id="modelSuggest"></datalist></div>
+        <div class="form-group" style="margin-bottom:0"><label class="form-label">Agent model <span class="label-hint">— fast model for the agentic loop</span></label><input class="form-input" id="aiAgentModel" value="${esc(s.agentModel || '')}" placeholder="e.g. google/gemini-3.1-flash-lite"></div>
+        <div class="ai-note">Recon data is sent to this provider, so it leaves your machine — for sensitive targets run a local model. DeepSeek or Qwen are plenty; Gemini Flash is a step up.</div>
+        <div class="settings-actions"><button class="btn btn-primary" id="aiSave">Save</button><button class="btn btn-ghost" id="aiTest">Test connection</button><span id="aiTestStatus" class="test-status"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="set-savebar" id="setSavebar"><div class="inner"><span class="msg"><span class="dot"></span><span id="setDirtyMsg">Unsaved changes</span></span><button class="set-btn ghost" id="setDiscard">Discard</button><button class="set-btn primary" id="setSaveAll">Save all</button></div></div>
+  `;
+
+  // ---- dirty tracking ----
+  let dirty = false;
+  const markDirty = () => { if (!dirty) { dirty = true; $('#setSavebar').classList.add('show'); } };
+
+  // ---- tabs ----
+  let depsLoaded = false;
+  $$('.set-tabs button').forEach(b => b.addEventListener('click', () => {
+    $$('.set-tabs button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    $$('.set-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === b.dataset.tab));
+    // The module banner + pills count MODULES; hide them on the Dependencies tab,
+    // which counts TOOLS, so the two "ready" numbers never sit side by side.
+    const onDeps = b.dataset.tab === 'deps';
+    const bn = $('.set-banner'); if (bn) bn.style.display = onDeps ? 'none' : '';
+    const pills = $('.set-summary'); if (pills) pills.style.display = onDeps ? 'none' : '';
+    if (b.dataset.tab === 'deps' && !depsLoaded) { depsLoaded = true; renderDepsTab(); }
+  }));
+  $$('[data-gotodeps]').forEach(b => b.addEventListener('click', () => { const t = $('.set-tabs button[data-tab="deps"]'); if (t) t.click(); }));
+
+  // ---- group collapse ----
+  $$('.set-group-h').forEach(h => h.addEventListener('click', () => h.closest('.set-group').classList.toggle('closed')));
+
+  // ---- module expand ----
+  $$('.set-expand').forEach(e => e.addEventListener('click', () => e.closest('.set-mod').classList.toggle('open')));
+  $$('.set-caret').forEach(c => c.addEventListener('click', () => c.closest('.set-mod').classList.toggle('open')));
+
+  // ---- switches (enable + bool params) ----
+  $$('.set-sw').forEach(sw => sw.addEventListener('click', ev => {
+    ev.stopPropagation();
+    if (sw.disabled) return;
+    sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+    markDirty();
+  }));
+
+  // ---- any input change marks dirty ----
+  app.addEventListener('input', ev => { if (ev.target.closest('.set-scope')) markDirty(); });
+
+  // ---- search + filter ----
+  let filter = 'all';
+  function applyFilter() {
+    const q = ($('#setSearch').value || '').trim().toLowerCase();
+    $$('.set-mod').forEach(card => {
+      const matchQ = !q || card.dataset.hay.includes(q);
+      const matchF = filter === 'all' || (filter === 'ready' && card.dataset.status !== 'blocked') || (filter === 'blocked' && card.dataset.status === 'blocked');
+      card.style.display = matchQ && matchF ? '' : 'none';
+    });
+    // hide empty groups
+    $$('.set-group').forEach(g => {
+      const any = [...g.querySelectorAll('.set-mod')].some(c => c.style.display !== 'none');
+      g.style.display = any ? '' : 'none';
+    });
+  }
+  $('#setSearch').addEventListener('input', applyFilter);
+  $$('.set-chip').forEach(ch => ch.addEventListener('click', () => {
+    $$('.set-chip').forEach(x => x.classList.remove('on'));
+    ch.classList.add('on');
+    filter = ch.dataset.filter;
+    applyFilter();
+  }));
+
+  // ---- install helpers ----
+  $$('[data-installsel]').forEach(sel => sel.addEventListener('change', () => {
+    const key = sel.dataset.installsel;
+    const m = modules.find(x => x.key === key);
+    const span = app.querySelector(`[data-cmd="${key}"]`);
+    if (m && span) span.textContent = setInstallCmd(m.tool, sel.value);
+  }));
+  $$('[data-copy]').forEach(btn => btn.addEventListener('click', () => {
+    const span = app.querySelector(`[data-cmd="${btn.dataset.copy}"]`);
+    if (span) { navigator.clipboard?.writeText(span.textContent); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 1200); }
+  }));
+  $$('[data-recheck]').forEach(btn => btn.addEventListener('click', async () => {
+    btn.textContent = 'Checking…';
+    await api('/tools/refresh', { method: 'POST' });
+    renderSettings();
+  }));
+
+  // ---- reset one module's fields ----
+  $$('[data-reset]').forEach(btn => btn.addEventListener('click', () => {
+    const card = app.querySelector(`.set-mod[data-mod="${btn.dataset.reset}"]`);
+    card.querySelectorAll('input[data-param]').forEach(i => { i.value = ''; });
+    card.querySelectorAll('.set-sw[data-param]').forEach(sw => sw.setAttribute('aria-checked', 'false'));
+    markDirty();
+  }));
+
+  // ---- collect + save all ----
+  function collect() {
+    const num = v => { const n = Number(v); return v !== '' && !Number.isNaN(n) ? n : undefined; };
+    const global = {
+      user_agent: $('#gUA').value.trim(),
+      rate_limit: num($('#gRate').value),
+      concurrency: num($('#gConc').value),
+      timeout: num($('#gTimeout').value),
+      out_of_scope: $('#gScope').value.trim(),
+    };
+    Object.keys(global).forEach(k => { if (global[k] === undefined) delete global[k]; });
+    const mods = {};
+    $$('.set-mod[data-mod]').forEach(card => {
+      const key = card.dataset.mod;
+      const vals = {};
+      card.querySelectorAll('[data-param]').forEach(el => {
+        const pk = el.dataset.param, t = el.dataset.type;
+        if (el.getAttribute('role') === 'switch') { vals[pk] = el.getAttribute('aria-checked') === 'true'; return; }
+        const v = el.value.trim();
+        if (v === '') return;
+        vals[pk] = t === 'number' ? Number(v) : v;
+      });
+      if (Object.keys(vals).length) mods[key] = vals;
+    });
+    const enabled = {};
+    $$('.set-sw[data-enable]').forEach(sw => { enabled[sw.dataset.enable] = sw.getAttribute('aria-checked') === 'true'; });
+    return { global, modules: mods, enabled };
+  }
+  async function saveAll() {
+    const res = await api('/settings', { method: 'POST', body: collect() });
+    if (res.ok) {
+      dirty = false; $('#setSavebar').classList.remove('show');
+      toast('Settings saved', 'success');
+    } else toast(res.error || 'save failed', 'error');
+  }
+  $('#setSaveAll').addEventListener('click', saveAll);
+  $$('[data-saveone]').forEach(b => b.addEventListener('click', saveAll));
+  $('#setDiscard').addEventListener('click', () => renderSettings());
+
+  // ---- AI pane (provider/model/key) ----
+  function fillModels(p) { $('#modelSuggest').innerHTML = (suggested[p] || []).map(m => `<option value="${esc(m)}"></option>`).join(''); }
+  fillModels(s.provider);
+  $('#aiProvider').addEventListener('change', () => {
+    const p = $('#aiProvider').value;
+    const preset = presets[p] || {};
+    if (p !== 'custom') $('#aiBaseURL').value = preset.baseURL || '';
+    fillModels(p);
+    const sug = suggested[p] || [];
+    if (sug.length) $('#aiModel').value = sug[0];
+  });
+  function aiBody() {
+    const body = { enabled: $('#aiEnabled').checked, provider: $('#aiProvider').value, baseURL: $('#aiBaseURL').value.trim(), model: $('#aiModel').value.trim(), agentModel: $('#aiAgentModel').value.trim() };
+    const key = $('#aiKey').value.trim();
+    if (key) body.apiKey = key;
+    return body;
+  }
+  $('#aiSave').addEventListener('click', async () => {
+    const res = await api('/ai/settings', { method: 'POST', body: aiBody() });
+    if (res.error) { toast(res.error, 'error'); return; }
+    $('#aiKey').value = '';
+    if (res.hasKey) $('#aiKey').placeholder = '•••• ' + res.keyMasked + ' — leave blank to keep';
+    toast('AI settings saved', 'success');
+  });
+  $('#aiTest').addEventListener('click', async () => {
+    const status = $('#aiTestStatus');
+    const base = $('#aiBaseURL').value.trim(), model = $('#aiModel').value.trim();
+    if (!base || !model) { status.textContent = '✗ base URL and model required'; status.className = 'test-status fail'; return; }
+    status.textContent = 'Testing…'; status.className = 'test-status testing';
+    await api('/ai/settings', { method: 'POST', body: aiBody() });
+    $('#aiKey').value = '';
+    const res = await api('/ai/test', { method: 'POST' });
+    if (res.ok) { status.textContent = `✓ Connected · ${res.model}`; status.className = 'test-status ok'; }
+    else { status.textContent = `✗ ${res.error || 'connection failed'}`; status.className = 'test-status fail'; }
+  });
+}
+
+/* ── DEPENDENCIES TAB (managed tool install) ──────────── */
+
+const DEP_LABEL = { ready: 'ready', untested: 'untested version', incompatible: 'incompatible', broken: 'broken', missing: 'not installed' };
+let depPollTimer = null;
+
+function depSize(b) { if (!b) return ''; const mb = b / 1048576; return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB'; }
+function depRuntimeNote(t) {
+  return (t.runtime || []).map(r => r.dep === 'chrome' ? 'needs Chrome at run time' : r.dep === 'root' ? 'SYN scan needs root' : r.dep === 'npcap' ? 'needs Npcap' : r.dep === 'libpcap' ? 'needs libpcap' : 'needs ' + r.dep).join(' · ');
+}
+
+function depRow(t) {
+  const usable = t.status === 'ready' || t.status === 'untested';
+  // in-flight / errored download
+  if (t.progress) {
+    const p = t.progress;
+    if (p.phase === 'error') {
+      const mm = p.code === 'HASH_MISMATCH';
+      return `<div class="dep-row" data-dep="${esc(t.id)}"><span class="res-dot down"></span>
+        <div class="dep-main"><div class="dep-name">${esc(t.displayName)}</div>
+          <div class="dep-sub"><span class="dep-err">${mm ? '⚠ checksum mismatch' : 'install failed'}: ${esc(p.error || '')}</span></div></div>
+        <div class="dep-act"><button class="set-btn ghost" data-dep-install="${esc(t.id)}">Retry</button></div></div>`;
+    }
+    const pct = p.phase === 'downloading' ? (p.pct || 0) : 100;
+    return `<div class="dep-row" data-dep="${esc(t.id)}"><span class="res-dot warn"></span>
+      <div class="dep-main"><div class="dep-name">${esc(t.displayName)}</div>
+        <div class="dep-sub">${esc(p.phase)}${p.phase === 'downloading' && p.pct ? ` · ${p.pct}%` : ''}</div>
+        <div class="dep-bar"><i style="width:${pct}%"></i></div></div>
+      <div class="dep-act"><span class="dep-tag">working…</span></div></div>`;
+  }
+
+  const tags = [];
+  if (t.unverified && (!usable || t.source === 'managed')) tags.push('<span class="dep-tag warn" title="This release publishes no checksum, so the download can\'t be hash-verified">no checksum</span>');
+  if (t.status === 'untested' && (t.reasons || []).includes('VERSION_OUT_OF_RANGE')) tags.push(`<span class="dep-tag" title="Our parsers were tested against a different version">v${esc(t.version || '')} untested</span>`);
+  if (t.platformSupport === 'untested' && usable) tags.push('<span class="dep-tag">platform untested</span>');
+  const rt = depRuntimeNote(t);
+
+  if (usable) {
+    const meta = [t.version ? 'v' + t.version : '', t.source].filter(Boolean).join(' · ');
+    const menu = `<div class="dep-menu"><button class="dep-dots" data-dep-menu="${esc(t.id)}" aria-label="More">⋯</button><div class="dep-pop" hidden>
+      ${t.installable ? `<button data-dep-install="${esc(t.id)}">Reinstall</button>` : ''}
+      ${t.source === 'managed' ? `<button data-dep-uninstall="${esc(t.id)}">Uninstall</button>` : ''}
+      ${t.path ? `<button data-dep-copy="${esc(t.path)}">Copy path</button>` : ''}
+      ${t.homepage ? `<a href="${esc(t.homepage)}" target="_blank" rel="noopener">Homepage ↗</a>` : ''}
+    </div></div>`;
+    return `<div class="dep-row avail" data-dep="${esc(t.id)}"><span class="res-dot ${rt ? 'warn' : 'up'}"></span>
+      <div class="dep-main"><div class="dep-name">${esc(t.displayName)} <span class="dep-meta">${esc(meta)}</span> ${tags.join(' ')}</div>
+        <div class="dep-sub">${rt ? `<span class="dep-rt">▲ ${esc(rt)}</span> · ` : ''}<span class="mono">${esc(t.path || '')}</span></div></div>
+      ${menu}</div>`;
+  }
+
+  // needs attention
+  const info = [t.lockVersion ? 'v' + t.lockVersion : '', t.host || '', depSize(t.size)].filter(Boolean).join(' · ');
+  const need = (t.neededBy || []).length ? `<span class="dep-need">needed by ${esc(t.neededBy.join(', '))}</span>` : '';
+  let action;
+  if (t.kind === 'manual') action = `<button class="res-mini" data-dep-copy="${esc(t.manualCommand || '')}">Copy command</button>`;
+  else if (t.installable) action = `<button class="set-btn primary" data-dep-install="${esc(t.id)}"${t.unverified ? ' data-unverified="1"' : ''}>Install</button>`;
+  else action = '<span class="dep-tag">no build for this OS</span>';
+  return `<div class="dep-row" data-dep="${esc(t.id)}"><span class="res-dot down"></span>
+    <div class="dep-main"><div class="dep-name">${esc(t.displayName)} ${tags.join(' ')}</div>
+      <div class="dep-sub">${esc(DEP_LABEL[t.status] || '')}${info ? ' · ' + esc(info) : ''}${rt ? ' · ' + esc(rt) : ''} ${need}</div></div>
+    <div class="dep-act">${action}</div></div>`;
+}
+
+// lightweight confirm sheet (explicit consent for downloading/running third-party binaries)
+function depConfirm(title, bodyHtml, okLabel) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'dep-modal';
+    ov.innerHTML = `<div class="dep-sheet"><h3>${esc(title)}</h3><div class="dep-sheet-body">${bodyHtml}</div>
+      <div class="dep-sheet-act"><button class="set-btn ghost" data-no>Cancel</button><button class="set-btn primary" data-yes>${esc(okLabel || 'Install')}</button></div></div>`;
+    document.body.appendChild(ov);
+    const close = v => { ov.remove(); resolve(v); };
+    ov.querySelector('[data-no]').onclick = () => close(false);
+    ov.querySelector('[data-yes]').onclick = () => close(true);
+    ov.onclick = e => { if (e.target === ov) close(false); };
+  });
+}
+
+function depPoll() {
+  clearInterval(depPollTimer);
+  depPollTimer = setInterval(async () => {
+    let prog; try { prog = await api('/deps/progress'); } catch { return; }
+    const ids = Object.keys(prog);
+    if (!ids.length) { clearInterval(depPollTimer); renderDepsTab(); return; }
+    ids.forEach(id => {
+      const row = document.querySelector(`.dep-row[data-dep="${id}"]`); if (!row) return;
+      const p = prog[id];
+      const sub = row.querySelector('.dep-sub'); const bar = row.querySelector('.dep-bar i');
+      if (p.phase === 'error') { clearInterval(depPollTimer); renderDepsTab(); return; }
+      if (sub) sub.textContent = p.phase + (p.phase === 'downloading' && p.pct ? ` · ${p.pct}%` : '');
+      if (bar) bar.style.width = (p.phase === 'downloading' ? (p.pct || 0) : 100) + '%';
+    });
+  }, 700);
+}
+
+async function renderDepsTab() {
+  const box = $('#setDepsBody'); if (!box) return;
+  if (!box.querySelector('.dep-row')) box.innerHTML = '<div class="res-empty">Checking your machine…</div>';
+  let data;
+  try { data = await api('/deps'); } catch { box.innerHTML = resEmptyMsg('Could not load dependencies.'); return; }
+  const attention = data.tools.filter(t => !(t.status === 'ready' || t.status === 'untested'));
+  const available = data.tools.filter(t => t.status === 'ready' || t.status === 'untested');
+  const c = data.counts;
+  const batchable = attention.filter(t => t.installable && t.verified && !t.progress);
+  const checked = data.checkedAt ? new Date(data.checkedAt).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : '';
+  box.innerHTML = `
+    <div class="res-bar">
+      <span class="res-count"><b>${c.available}</b>/${c.total} tools available${c.attention ? ` · ${c.attention} to set up` : ''}</span>
+      <span style="flex:1"></span>
+      ${batchable.length >= 2 ? '<button class="set-btn primary" id="depInstallAll">Install all</button>' : ''}
+      <button class="res-mini" id="depRecheck">Re-check${checked ? ` · ${checked}` : ''}</button>
+    </div>
+    <div class="dep-note">Installed into the app's own folder (<span class="mono">~/.webkiller/tools</span>) — no sudo, nothing added to your PATH. Each binary is pinned and checksum-verified against its official release.</div>
+    ${!data.platform.tested ? `<div class="dep-note warn">⚠ This platform (<b>${esc(data.platform.key)}</b>) isn't verified yet — tools are marked untested until checked on real hardware.</div>` : ''}
+    ${attention.length ? `<div class="res-ghead">Needs attention <b>${attention.length}</b></div><div class="res-list">${attention.map(depRow).join('')}</div>` : ''}
+    <div class="res-ghead" style="margin-top:var(--space-3)">Available <b>${available.length}</b></div>
+    <div class="res-list">${available.map(depRow).join('')}</div>`;
+
+  const copyBtn = el => el.addEventListener('click', e => { e.stopPropagation(); try { navigator.clipboard.writeText(el.dataset.depCopy); const o = el.textContent; el.textContent = 'Copied ✓'; setTimeout(() => el.textContent = o, 1200); } catch {} });
+  box.querySelectorAll('[data-dep-copy]').forEach(copyBtn);
+
+  // ⋯ menus
+  box.querySelectorAll('[data-dep-menu]').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    const pop = b.nextElementSibling; const open = !pop.hidden;
+    box.querySelectorAll('.dep-pop').forEach(p => p.hidden = true);
+    pop.hidden = open;
+  }));
+  document.addEventListener('click', () => box.querySelectorAll('.dep-pop').forEach(p => p.hidden = true), { once: true });
+
+  async function startInstall(id) { await api('/deps/install', { method: 'POST', body: { id } }); depPoll(); renderDepsTab(); }
+  box.querySelectorAll('[data-dep-install]').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation();
+    const id = b.dataset.depInstall;
+    const t = data.tools.find(x => x.id === id) || {};
+    if (b.dataset.unverified) {
+      const ok = await depConfirm('Install without a checksum?',
+        `<p><b>${esc(t.displayName)}</b>'s release publishes no checksum, so this download can't be hash-verified.</p>
+         <p>Source: <span class="mono">${esc(t.host || '')}</span>${t.size ? ' · ' + depSize(t.size) : ''}</p>
+         <p class="dep-sheet-warn">Install only if you trust the source.</p>`, 'Install anyway');
+      if (!ok) return;
+    }
+    startInstall(id);
+  }));
+
+  box.querySelectorAll('[data-dep-uninstall]').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation();
+    const id = b.dataset.depUninstall;
+    await api('/deps/uninstall', { method: 'POST', body: { id } });
+    toast(`${id} removed`, 'info'); renderDepsTab();
+  }));
+
+  const all = $('#depInstallAll');
+  if (all) all.addEventListener('click', async () => {
+    const rows = batchable.map(t => `<li><b>${esc(t.displayName)}</b> <span class="mono">${esc(t.lockVersion ? 'v' + t.lockVersion : '')}</span> — ${esc(t.host || '')}${t.size ? ' · ' + depSize(t.size) : ''}</li>`).join('');
+    const ok = await depConfirm(`Install ${batchable.length} tools`,
+      `<p>Downloads these from their official releases into the app folder (checksum-verified):</p><ul class="dep-sheet-list">${rows}</ul>
+       <p class="dep-sheet-warn">Tools without a published checksum aren't included — install those individually.</p>`, `Install ${batchable.length}`);
+    if (!ok) return;
+    await api('/deps/install-all', { method: 'POST' }); depPoll(); renderDepsTab();
+  });
+
+  const rc = $('#depRecheck'); if (rc) rc.addEventListener('click', async () => { rc.textContent = 'Checking…'; await api('/deps/recheck', { method: 'POST' }); renderDepsTab(); });
+}
+function resEmptyMsg(m) { return `<div class="res-empty">${esc(m)}</div>`; }
 
 /* ── HELPERS ──────────────────────── */
 
@@ -404,8 +1334,9 @@ function esc(s) { const d = document.createElement('div'); d.textContent = Strin
 function pct(scan) { return scan.modules_total ? Math.round((scan.modules_done / scan.modules_total) * 100) : 0; }
 
 function statusBadge(status) {
-  const map = { running: 'badge-medium', completed: 'badge-low', error: 'badge-critical', created: 'badge-info' };
-  return `<span class="badge ${map[status] || 'badge-info'}">${status}</span>`;
+  const map = { running: 'badge-medium', completed: 'badge-low', error: 'badge-critical', failed: 'badge-critical', created: 'badge-info' };
+  const label = status === 'error' ? 'failed' : status;
+  return `<span class="badge ${map[status] || 'badge-info'}">${label}</span>`;
 }
 
 function severityBadge(sev) {
@@ -468,7 +1399,7 @@ async function renderSetup() {
   `;
 
   let step = 0;
-  const steps = ['Environment', 'Tools', 'Ready'];
+  const steps = ['Tools', 'Ready'];
 
   function renderSteps() {
     $('#setupSteps').innerHTML = steps.map((s, i) => `
@@ -481,66 +1412,10 @@ async function renderSetup() {
 
   async function renderStep0() {
     renderSteps();
-    const content = $('#setupContent');
-
-    if (!isElectron) {
-      content.innerHTML = `
-        <div class="card animate-in" style="max-width:600px;margin:0 auto">
-          <div class="card-body" style="text-align:center">
-            <div class="setup-check-icon ok">✓</div>
-            <h2 style="color:var(--text-primary);margin:var(--space-3) 0">Running in Browser Mode</h2>
-            <p style="color:var(--text-secondary)">Python environment detected. Tools can be installed manually.</p>
-          </div>
-        </div>`;
-      $('#setupNav').innerHTML = `<button class="btn btn-primary" id="nextBtn">Continue</button>`;
-      $('#nextBtn').addEventListener('click', () => { step = 1; renderStep1(); });
-      return;
-    }
-
-    content.innerHTML = `
-      <div class="card animate-in" style="max-width:600px;margin:0 auto">
-        <div class="card-body" style="text-align:center">
-          <div class="setup-spinner"></div>
-          <p style="color:var(--text-secondary);margin-top:var(--space-3)">Checking Python installation...</p>
-        </div>
-      </div>`;
-    $('#setupNav').innerHTML = '';
-
-    const result = await window.electronAPI.checkPython();
-    if (result.found && result.meetsMinimum) {
-      content.innerHTML = `
-        <div class="card animate-in" style="max-width:600px;margin:0 auto">
-          <div class="card-body" style="text-align:center">
-            <div class="setup-check-icon ok">✓</div>
-            <h2 style="color:var(--text-primary);margin:var(--space-3) 0">Python ${esc(result.version)} Found</h2>
-            <p class="mono" style="color:var(--text-muted);font-size:var(--text-sm)">${esc(result.path)}</p>
-          </div>
-        </div>`;
-      $('#setupNav').innerHTML = `<button class="btn btn-primary" id="nextBtn">Continue</button>`;
-      $('#nextBtn').addEventListener('click', () => { step = 1; renderStep1(); });
-    } else {
-      const ver = result.found ? `Python ${result.version} found, but 3.8+ required` : 'Python 3.8+ not found';
-      content.innerHTML = `
-        <div class="card animate-in" style="max-width:600px;margin:0 auto">
-          <div class="card-body" style="text-align:center">
-            <div class="setup-check-icon fail">✗</div>
-            <h2 style="color:var(--accent-red);margin:var(--space-3) 0">${esc(ver)}</h2>
-            <p style="color:var(--text-secondary)">Install Python 3.8+ and click Re-check.</p>
-            <div class="setup-instructions">
-              <code>brew install python@3.12</code> (macOS)<br>
-              <code>sudo apt install python3.12</code> (Linux)<br>
-              <code>python.org/downloads</code> (Windows)
-            </div>
-          </div>
-        </div>`;
-      $('#setupNav').innerHTML = `<button class="btn btn-primary" id="recheckBtn">Re-check</button>`;
-      $('#recheckBtn').addEventListener('click', () => renderStep0());
-    }
+    await renderToolsStep();
   }
 
-  async function renderStep1() {
-    step = 1;
-    renderSteps();
+  async function renderToolsStep() {
     const content = $('#setupContent');
 
     const toolsStatus = isElectron
@@ -573,7 +1448,7 @@ async function renderSetup() {
               <div class="setup-tool-status">
                 ${info.installed
                   ? `<span class="badge badge-low">${info.location === 'system' ? 'System' : 'Installed'}</span>`
-                  : info.type === 'system'
+                  : (info.type === 'system' || info.type === 'optional-pip')
                     ? '<span class="badge badge-medium">Manual</span>'
                     : '<span class="badge badge-info">Not installed</span>'}
               </div>
@@ -598,7 +1473,7 @@ async function renderSetup() {
       if (isElectron) await window.electronAPI.skipSetup();
       location.hash = '/';
     });
-    $('#doneBtn').addEventListener('click', () => { step = 2; renderStep2(); });
+    $('#doneBtn').addEventListener('click', () => { step = 1; renderStep1(); });
 
     if (isElectron && $('#installAllBtn')) {
       $('#installAllBtn').addEventListener('click', async () => {
@@ -646,8 +1521,8 @@ async function renderSetup() {
     }
   }
 
-  async function renderStep2() {
-    step = 2;
+  async function renderStep1() {
+    step = 1;
     renderSteps();
     const content = $('#setupContent');
     content.innerHTML = `
@@ -673,4 +1548,379 @@ function detectPlatform() {
   if (ua.includes('mac')) return 'darwin';
   if (ua.includes('win')) return 'win32';
   return 'linux';
+}
+
+/* ============================================================
+   AGENTIC RUN — progress ("The Hunt Map") + results ("Run Report")
+   ============================================================ */
+let agProgressState = null;
+let agTimer = null;
+
+const AG_PHASE_DEFS = [
+  { key: 'recon', name: 'Recon' },
+  { key: 'surface', name: 'Surface' },
+  { key: 'fingerprint', name: 'Fingerprint' },
+  { key: 'confirm', name: 'Confirm' },
+  { key: 'report', name: 'Report' },
+];
+function agPhaseIndex(name) {
+  const n = String(name || '').toLowerCase();
+  if (/finish/.test(n)) return 4;
+  if (/^confirm_|http_request|record_finding|scan_vuln|vuln_/.test(n)) return 3;
+  if (/fingerprint/.test(n)) return 2;
+  if (/url|param|js_?recon|jsrecon|crawl|content/.test(n)) return 1;
+  if (/subdomain|enumerate|probe/.test(n)) return 0;
+  return 3;
+}
+function agSevClass(s) { s = String(s || '').toLowerCase(); return s === 'critical' ? 'crit' : s === 'high' ? 'high' : s === 'medium' ? 'med' : s === 'low' ? 'low' : 'info'; }
+
+// Dedicated failed-scan screen (auth/provider error, etc.) — replaces the live
+// map/terminal so a 401 reads as a clear failure, not a red line in a log.
+function agErrorCard(scan, scanId) {
+  const msg = scan.error || 'The scan ended with an error.';
+  const auth = /401|403|unauthor|api[\s_-]?key|expired|invalid.*(key|token)|not configured|no api key/i.test(msg);
+  return `
+    <div class="ag-head"><div>
+      <div class="ag-title">${esc(scan.target || 'Scan')}</div>
+      <div class="ag-sub"><span class="ag-pill agent">◇ AGENTIC</span><span class="ag-pill err">✕ failed</span></div>
+    </div></div>
+    <div class="ag-errscreen">
+      <div class="ic">⚠</div>
+      <h2>Scan failed</h2>
+      <p class="msg">${esc(msg)}</p>
+      ${auth ? `<p class="hint">This looks like an API-key problem — your provider key may be missing, invalid, or expired. Open Settings, paste a fresh key, and run <b>Test connection</b> before scanning.</p>` : ''}
+      <div class="acts">
+        <a href="#/settings" class="btn btn-primary">Open Settings</a>
+        <a href="#/scan" class="btn btn-ghost">New scan</a>
+      </div>
+    </div>`;
+}
+
+async function renderAgenticProgress(scanId, scan) {
+  currentScanId = scanId;
+  if (agTimer) { clearInterval(agTimer); agTimer = null; }
+  if (scan.status === 'error') { if (eventSource) { eventSource.close(); eventSource = null; } app.innerHTML = agErrorCard(scan, scanId); return; }
+  app.innerHTML = `
+    <div class="ag-head">
+      <div>
+        <div class="ag-title">${esc(scan.target)}</div>
+        <div class="ag-sub">
+          <span class="ag-pill agent">◇ AGENTIC</span>
+          <span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span>
+          <span class="ag-pill live" id="agPhasePill"><span class="dot"></span>starting…</span>
+        </div>
+      </div>
+      <div class="ag-meters">
+        <div class="ag-meter"><div class="k">Elapsed</div><div class="val" id="agElapsed">00:00</div></div>
+        <div class="ag-meter"><div class="k">Tokens</div><div class="val" id="agTokens">—</div></div>
+        <div class="ag-meter"><div class="k">Cost</div><div class="val ac" id="agCost">—</div></div>
+      </div>
+    </div>
+    <div class="ag-map"><div class="ag-phases" id="agPhases" style="--done:0">
+      ${AG_PHASE_DEFS.map((p, i) => `<div class="ag-phase fog" data-ph="${i}"><div class="ag-node">${i + 1}</div><div class="ag-pname">${p.name}</div><div class="ag-pmeta"></div></div>`).join('')}
+    </div></div>
+    <div class="ag-now">
+      <div class="ag-panel">
+        <div class="ag-panel-h"><span class="t">▸ ACTIVITY</span><span class="cnt" id="agStepCnt"></span></div>
+        <div class="ag-scroll" id="agSteps"><div class="ag-empty" style="padding:var(--space-4)">waiting for the agent…</div></div>
+      </div>
+      <div class="terminal ag-term">
+        <div class="terminal-bar"><div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot amber"></div><div class="terminal-dot green"></div></div><div class="terminal-title">agent reasoning — live</div></div>
+        <div class="terminal-body ag-stream" id="agStream"></div>
+      </div>
+    </div>
+    <div class="ag-ftick" id="agFtick"></div>
+  `;
+  agProgressState = {
+    reached: 0, steps: 0, stepEls: {}, http: 0, find: 0,
+    sev: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+    t0: (scan.started_at ? scan.started_at * 1000 : Date.now()), done: false,
+    target: scan.target, lastError: null,
+  };
+  agTimer = setInterval(() => {
+    const st = agProgressState; if (!st) return;
+    const e = Math.max(0, Math.floor((Date.now() - st.t0) / 1000));
+    const el = $('#agElapsed'); if (el) el.textContent = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+    $$('.ag-step.run .tmr').forEach(t => { const s = +t.dataset.start || Date.now(); t.textContent = ((Date.now() - s) / 1000).toFixed(1) + 's'; });
+  }, 200);
+  agSetPhase(0);
+  startAgenticSSE(scanId, agProgressState);
+}
+
+function agSetPhase(i) {
+  const st = agProgressState; if (!st) return;
+  st.reached = Math.max(st.reached, i);
+  const r = st.reached, last = AG_PHASE_DEFS.length - 1;
+  $$('#agPhases .ag-phase').forEach((el, idx) => {
+    el.classList.remove('done', 'active', 'fog');
+    const node = el.querySelector('.ag-node');
+    if (idx < r || (idx === r && st.done)) { el.classList.add('done'); node.textContent = '✓'; }
+    else if (idx === r) { el.classList.add('active'); node.textContent = '⚡'; }
+    else { el.classList.add('fog'); node.textContent = idx + 1; }
+  });
+  const phasesEl = $('#agPhases');
+  if (phasesEl) phasesEl.style.setProperty('--done', st.done ? 1 : (r / last));
+  const pill = $('#agPhasePill');
+  if (pill && !st.done) pill.innerHTML = `<span class="dot"></span>${AG_PHASE_DEFS[r] ? AG_PHASE_DEFS[r].name : ''}`;
+}
+
+function agAddStep(name) {
+  const st = agProgressState, box = $('#agSteps'); if (!st || !box) return;
+  const first = box.querySelector('.ag-empty'); if (first) first.remove();
+  const row = document.createElement('div');
+  row.className = 'ag-step run';
+  row.innerHTML = `<div class="ico"></div><div class="nm"><span class="lbl">${esc(name)}</span></div><div class="tmr" data-start="${Date.now()}">0.0s</div>`;
+  box.appendChild(row); box.scrollTop = box.scrollHeight;
+  st.stepEls[name] = row; st.steps++;
+  const c = $('#agStepCnt'); if (c) c.textContent = st.steps + ' steps';
+}
+function agFinishStep(name, meta) {
+  const st = agProgressState; if (!st) return;
+  const row = st.stepEls[name]; if (!row) return;
+  row.classList.remove('run'); row.classList.add('done');
+  row.querySelector('.ico').textContent = '✓';
+  const tmr = row.querySelector('.tmr'), s = +tmr.dataset.start || Date.now();
+  tmr.textContent = ((Date.now() - s) / 1000).toFixed(1) + 's';
+  if (meta) { const sm = document.createElement('small'); sm.textContent = ' · ' + meta; row.querySelector('.nm').appendChild(sm); }
+}
+function agBump(kind) {
+  const st = agProgressState, box = $('#agSteps'); if (!st || !box) return;
+  const id = kind === 'http' ? 'agGrpHttp' : 'agGrpFind';
+  st[kind === 'http' ? 'http' : 'find']++;
+  let row = document.getElementById(id);
+  if (!row) {
+    row = document.createElement('div'); row.className = 'ag-grprow'; row.id = id;
+    row.innerHTML = kind === 'http'
+      ? `<div class="ico">⇄</div><div class="nm"><b>http_request ×<span>0</span></b> <small style="color:var(--text-muted)">· agent chaining</small></div>`
+      : `<div class="ico">✎</div><div class="nm"><b>record_finding ×<span>0</span></b> <small style="color:var(--text-muted)">· confirmed</small></div>`;
+    box.appendChild(row);
+  }
+  row.querySelector('b span').textContent = (kind === 'http' ? st.http : st.find);
+}
+function agStream(type, text) {
+  const box = $('#agStream'); if (!box) return;
+  const tag = { think: 'think', tool: 'tool', req: 'req', hit: 'FOUND', sys: '·' }[type] || type;
+  const ln = document.createElement('div'); ln.className = 'ag-ln ' + type;
+  const now = new Date().toLocaleTimeString('en', { hour12: false });
+  ln.innerHTML = `<span class="ag-t">${now}</span><span class="tg">${tag}</span><span class="tx">${esc(text)}</span>`;
+  box.appendChild(ln); box.scrollTop = box.scrollHeight;
+}
+function agFinding(sev, name) {
+  const st = agProgressState; if (!st) return;
+  const s = String(sev || 'info').toLowerCase();
+  if (st.sev[s] !== undefined) st.sev[s]++;
+  const tick = $('#agFtick'); if (!tick) return;
+  tick.innerHTML = [['critical', 'crit'], ['high', 'high'], ['medium', 'med'], ['low', 'low']]
+    .filter(([k]) => st.sev[k] > 0)
+    .map(([k, c]) => `<span class="ag-sev ${c}"><span class="n">${st.sev[k]}</span> ${k}</span>`).join('');
+}
+
+function startAgenticSSE(scanId, st) {
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource(`/api/scan/${scanId}/events`);
+  eventSource.onmessage = (e) => {
+    let ev; try { ev = JSON.parse(e.data); } catch { return; }
+    const d = ev.data || '';
+    switch (ev.type) {
+      case 'agent_start': agStream('sys', d); break;
+      case 'tool_call': agSetPhase(agPhaseIndex(d)); agAddStep(d); agStream('tool', d); break;
+      case 'tool_result': { const m = String(d).match(/^(\S+):\s*(.+)$/); agFinishStep(m ? m[1] : d, m ? m[2] : ''); break; }
+      case 'agent_request': agSetPhase(3); agBump('http'); agStream('req', d); break;
+      case 'agent_finding': { const m = String(d).match(/^(\w+)\s*[—–-]\s*(.+)$/); const sev = m ? m[1] : 'info', nm = m ? m[2] : d; agSetPhase(3); agFinding(sev, nm); agBump('find'); agStream('hit', d); break; }
+      case 'agent_thought': agStream('think', d); break;
+      case 'agent_read': agStream('sys', 'read ' + d); break;
+      case 'agent_summary': { const tm = String(d).match(/([\d,]+)\s*tokens/); if (tm) { const tk = +tm[1].replace(/,/g, ''); const te = $('#agTokens'); if (te) te.textContent = (tk / 1000).toFixed(1) + 'k'; const ce = $('#agCost'); if (ce) ce.textContent = '$' + (tk / 1e6 * 0.4).toFixed(3); } break; }
+      case 'agent_done': agStream('sys', d); break;
+      case 'agent_stop': agStream('sys', d); break;
+      case 'agent_error': case 'error': st.lastError = d; agStream('hit', 'error: ' + d); break;
+      case 'scan_done': agStream('sys', 'scan ' + d); break;
+      case 'end': {
+        if (agTimer) { clearInterval(agTimer); agTimer = null; }
+        setStatus('Ready', '');
+        if (eventSource) { eventSource.close(); eventSource = null; }
+        // A failed run gets the dedicated error screen, not the "complete" map.
+        if (ev.status === 'error') {
+          app.innerHTML = agErrorCard({ target: st.target, error: st.lastError || 'The scan ended with an error.' }, scanId);
+          break;
+        }
+        st.done = true; agSetPhase(4);
+        const pill = $('#agPhasePill'); if (pill) { pill.classList.remove('live'); pill.innerHTML = '✓ complete'; }
+        const sub = $('.ag-sub');
+        if (sub && !$('#agViewReport')) {
+          const b = document.createElement('a'); b.id = 'agViewReport'; b.href = `#/results/${scanId}`;
+          b.className = 'btn btn-primary btn-sm'; b.style.marginLeft = '8px'; b.textContent = 'View Report →';
+          sub.appendChild(b);
+        }
+        break;
+      }
+    }
+  };
+}
+
+/* ── AGENTIC RESULTS ── */
+async function renderAgenticResults(scanId, scan) {
+  if (agTimer) { clearInterval(agTimer); agTimer = null; }
+  if (eventSource) { eventSource.close(); eventSource = null; } // don't leak the progress stream into the report
+  if (scan.status === 'error') { app.innerHTML = agErrorCard(scan, scanId); return; }
+  const grab = async (f, jsonl) => {
+    try {
+      const r = await fetch(`/api/scan/${scanId}/results/${f}`);
+      if (!r.ok) return jsonl ? [] : '';
+      if (!jsonl) return await r.text();
+      const txt = await r.text();
+      try { const j = JSON.parse(txt); return Array.isArray(j) ? j : (j ? [j] : []); }
+      catch { return txt.split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); }
+    } catch { return jsonl ? [] : ''; }
+  };
+  const [confirmed, findings, subs, live, urls, params, jsend] = await Promise.all([
+    grab('confirmed.jsonl', true), grab('findings.jsonl', true),
+    grab('subdomains.txt'), grab('live.txt'), grab('urls.txt'), grab('params.txt'), grab('js_endpoints.txt'),
+  ]);
+  const nlines = s => String(s || '').split('\n').filter(Boolean).length;
+  const conf = Array.isArray(confirmed) ? confirmed.slice() : [];
+  const ord = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+  conf.sort((a, b) => (ord[(a.severity || 'info').toLowerCase()] ?? 9) - (ord[(b.severity || 'info').toLowerCase()] ?? 9));
+  const sevCount = {}; conf.forEach(f => { const s = (f.severity || 'info').toLowerCase(); sevCount[s] = (sevCount[s] || 0) + 1; });
+  // Leads = unconfirmed findings, counted via the same merge the Leads tab renders.
+  const leads = resMergeFindings(findings, confirmed).filter(f => f._kind === 'potential').length;
+  const classes = [...new Set(conf.map(f => f.vuln_class || f.name).filter(Boolean))].slice(0, 8);
+  const sevPills = ['critical', 'high', 'medium', 'low'].filter(s => sevCount[s]).map(s => `<span class="ag-sev ${agSevClass(s)}"><span class="n">${sevCount[s]}</span> ${s}</span>`).join('');
+
+  app.innerHTML = `
+    <div class="ag-head">
+      <div>
+        <div class="ag-title">${esc(scan.target)}</div>
+        <div class="ag-sub">
+          <span class="ag-pill agent">◇ AGENTIC</span>
+          <span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span>
+          <span class="ag-pill ${scan.status === 'completed' ? 'done' : scan.status === 'error' ? 'err' : 'live'}">${scan.status === 'completed' ? '✓' : scan.status === 'error' ? '✕' : '◴'} ${esc(scan.status)}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="agAiBtn">AI report ✦</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportResults('${scanId}','json')">Export JSON</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportResults('${scanId}','html')">Export HTML</button>
+      </div>
+    </div>
+    <div class="ag-hero">
+      <div class="ag-verdict ${conf.length ? '' : 'clean'}">
+        <div class="big ${conf.length ? '' : 'clean'}">${conf.length} confirmed</div>
+        <div class="cap">${conf.length ? 'vulnerabilities proven with evidence' : 'no vulnerabilities confirmed in this run'}${leads ? ` · ${leads} more leads need manual review` : ''}</div>
+        <div class="sevrow">${sevPills || '<span class="ag-sev info"><span class="n">0</span> findings</span>'}</div>
+      </div>
+      <div class="ag-statgrid">
+        <div class="ag-stat"><div class="k">Surface</div><div class="v ac">${nlines(urls)}<small> urls</small></div></div>
+        <div class="ag-stat"><div class="k">Params</div><div class="v">${nlines(params)}</div></div>
+        <div class="ag-stat"><div class="k">Subdomains</div><div class="v">${nlines(subs)}</div></div>
+        <div class="ag-stat"><div class="k">Leads</div><div class="v">${leads}</div></div>
+      </div>
+    </div>
+    <div id="agAiOut"></div>
+    ${classes.length ? `<div class="ag-replay"><h3>WHAT THE AGENT DID</h3><div class="ag-chain">
+      <span class="c">recon</span><span class="arw">→</span>
+      <span class="c">${nlines(urls)} urls / ${nlines(params)} params</span><span class="arw">→</span>
+      ${nlines(jsend) ? `<span class="c">${nlines(jsend)} js endpoints</span><span class="arw">→</span>` : ''}
+      ${classes.map(c => `<span class="c k">confirm ${esc(c)}</span>`).join('<span class="arw">→</span>')}
+      <span class="arw">→</span><span class="c">report</span>
+    </div></div>` : ''}
+    <div class="ag-sec">Confirmed vulnerabilities <span class="ct">· ${conf.length} · sorted by severity</span></div>
+    <div id="agCards"></div>
+    <details class="ag-fold"${conf.length ? '' : ' open'}>
+      <summary><span>Recon data &amp; leads</span><span class="mono" style="color:var(--text-muted)">▾</span></summary>
+      <div class="res-subtabs" id="agReconTabs">
+        <button data-rv="hosts" class="on">Hosts <b>${nlines(subs)}</b></button>
+        <button data-rv="endpoints">Endpoints <b>${nlines(urls)}</b></button>
+        <button data-rv="osint">OSINT</button>
+        ${leads ? `<button data-rv="leads">Leads <b>${leads}</b></button>` : ''}
+      </div>
+      <div id="agReconView" style="padding:0 var(--space-4) var(--space-4)"></div>
+    </details>
+  `;
+
+  const cardsEl = $('#agCards');
+  cardsEl.innerHTML = conf.length
+    ? conf.map(agFindingCard).join('')
+    : `<div class="ag-empty">The agent completed recon and testing but confirmed no vulnerabilities. Any heuristic leads are under “Recon data &amp; leads”.</div>`;
+  $$('.ag-fh').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
+  $$('.ag-code [data-copy]').forEach(() => {});
+  $$('.ag-poc-actions .btn[data-copy]').forEach(b => b.addEventListener('click', () => { try { navigator.clipboard.writeText(b.dataset.copy); const o = b.textContent; b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = o, 1200); } catch {} }));
+  // Recon fold reuses the shared rich views (same as the classic Results tabs).
+  const reconView = $('#agReconView');
+  const loadRecon = k => {
+    $$('#agReconTabs button').forEach(b => b.classList.toggle('on', b.dataset.rv === k));
+    if (k === 'hosts') resHostsView(scanId, reconView);
+    else if (k === 'endpoints') resEndpointsView(scanId, reconView);
+    else if (k === 'osint') resOsintView(scanId, reconView);
+    else if (k === 'leads') resFindingsView(scanId, reconView, { only: 'potential', emptyMsg: 'No unconfirmed leads.' });
+  };
+  $$('#agReconTabs button').forEach(b => b.addEventListener('click', () => loadRecon(b.dataset.rv)));
+  loadRecon('hosts');
+  const aiBtn = $('#agAiBtn'); if (aiBtn) aiBtn.addEventListener('click', () => agAiReport(scanId, aiBtn));
+}
+
+function agFindingCard(f) {
+  const sev = (f.severity || 'info').toLowerCase(), cls = agSevClass(sev);
+  const ev = f.evidence || {};
+  const url = esc(f.url || ''), param = ev.param ? esc(ev.param) : '';
+  const impact = esc(ev.note || ev.detail || '');
+  let poc = '';
+  if (ev.payload) poc += `${(ev.method || 'GET')} ${f.url || ''}` + (ev.param ? `   (param: ${ev.param})` : '') + `\npayload: ${ev.payload}\n`;
+  if (ev.matched) poc += `matched: ${ev.matched}\n`;
+  if (ev.canary) poc += `canary: ${ev.canary}\n`;
+  if (ev.probe) poc += `probe: ${ev.probe}\n`;
+  if (ev.reflected_origin) poc += `Access-Control-Allow-Origin: ${ev.reflected_origin}\nAllow-Credentials: ${ev.allow_credentials}\n`;
+  if (ev.location) poc += `Location: ${ev.location}\n`;
+  if (ev.marker) poc += `marker reflected: ${ev.marker}\n`;
+  if (ev.base_time !== undefined) poc += `baseline ${ev.base_time}s → payload ${ev.delay_time}s` + (ev.reconfirmed ? ' (reconfirmed)' : '') + `\n`;
+  if (ev.detail && !ev.payload) poc += ev.detail + '\n';
+  if (!poc.trim()) poc = JSON.stringify(ev, null, 2);
+  const open = (sev === 'critical' || sev === 'high') ? ' open' : '';
+  return `<div class="ag-fcard ${cls}${open}">
+    <div class="ag-fh"><span class="ag-sev ${cls}"><span class="n">${sev.slice(0, 4).toUpperCase()}</span></span><span class="title">${esc(f.name || f.vuln_class || 'Finding')}</span><span class="cls">${esc(f.vuln_class || '')}</span><span class="chev">▸</span></div>
+    <div class="ag-fb">
+      ${url ? `<div class="ag-kv"><span class="k">Endpoint</span><span class="v">${url}</span></div>` : ''}
+      ${param ? `<div class="ag-kv"><span class="k">Parameter</span><span class="v">${param}</span></div>` : ''}
+      ${impact ? `<div class="ag-kv"><span class="k">Impact</span><span class="v">${impact}</span></div>` : ''}
+      <div class="ag-poc"><div class="lbl">Proof of concept</div><div class="ag-code">${esc(poc.trim())}</div>
+        <div class="ag-poc-actions"><button class="btn btn-sm" data-copy="${esc(f.url || '')}">Copy URL</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function agLoadRaw(scanId, file) {
+  const out = $('#agRawOut'); if (!out) return;
+  out.innerHTML = `<div class="ag-empty" style="padding:var(--space-3)">loading ${esc(file)}…</div>`;
+  try {
+    const jsonl = file.endsWith('.jsonl');
+    const r = await fetch(`/api/scan/${scanId}/results/${file}`);
+    const data = r.ok ? (jsonl ? await r.json() : await r.text()) : null;
+    const items = jsonl ? (data || []).map(x => x.name ? `${(x.severity || '').toUpperCase()} ${x.name} ${x.url || ''}` : JSON.stringify(x)) : String(data || '').split('\n').filter(Boolean);
+    out.innerHTML = `<div style="margin:8px 0;color:var(--text-secondary);font-size:var(--text-sm)">${items.length} · ${esc(file)}</div>
+      <div class="terminal" style="max-height:340px"><div class="terminal-body">${items.slice(0, 300).map(l => `<div class="terminal-line">${esc(l)}</div>`).join('') || '<div class="terminal-line">(empty)</div>'}</div></div>`;
+  } catch { out.innerHTML = `<div class="ag-empty" style="padding:var(--space-3)">could not load ${esc(file)}</div>`; }
+}
+
+async function agAiReport(scanId, btn) {
+  const out = $('#agAiOut'); if (!out) return;
+  btn.disabled = true; const label = btn.textContent; btn.textContent = 'Asking the model…';
+  out.innerHTML = `<div class="ag-empty" style="padding:var(--space-4)">generating AI report…</div>`;
+  let res; try { res = await api(`/scan/${scanId}/ai/report`, { method: 'POST' }); } catch { res = { ok: false, error: 'request failed' }; }
+  btn.disabled = false; btn.textContent = label;
+  if (!res || !res.ok) { out.innerHTML = `<div class="ag-empty" style="padding:var(--space-4)">AI report failed: ${esc((res && res.error) || 'unknown')}. Check AI settings.</div>`; return; }
+  const tok = res.usage && res.usage.total_tokens ? ` · ${res.usage.total_tokens} tokens` : '';
+  out.innerHTML = `<div class="ag-replay"><h3>AI REPORT${esc(tok)}</h3><div class="md-body">${agMd(res.markdown)}</div></div>`;
+}
+function agMd(md) {
+  const inl = t => esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  let out = '', inList = false;
+  for (const line of String(md || '').split('\n')) {
+    if (/^\s*[-*]\s+/.test(line)) { if (!inList) { out += '<ul>'; inList = true; } out += '<li>' + inl(line.replace(/^\s*[-*]\s+/, '')) + '</li>'; continue; }
+    if (inList) { out += '</ul>'; inList = false; }
+    const h = line.match(/^(#{1,4})\s+(.*)/);
+    if (h) { const lv = Math.min(h[1].length + 1, 6); out += `<h${lv} class="md-h">${inl(h[2])}</h${lv}>`; continue; }
+    if (line.trim()) out += `<p>${inl(line)}</p>`;
+  }
+  if (inList) out += '</ul>';
+  return out;
 }

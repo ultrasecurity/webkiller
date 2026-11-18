@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebKiller — Agentic UX base design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-void:#0A0E0F;--bg-surface:#111618;--bg-raised:#161D1F;--bg-overlay:#1A2428;--bg-hover:#1E2A2D;
+  --accent-primary:#00D4AA;--accent-primary-dim:#00A888;--accent-primary-glow:rgba(0,212,170,.18);--accent-primary-muted:rgba(0,212,170,.06);
+  --accent-red:#FF4444;--accent-red-glow:rgba(255,68,68,.18);
+  --accent-high:#FF6B35;--accent-high-glow:rgba(255,107,53,.18);
+  --accent-amber:#FFAA00;--accent-amber-glow:rgba(255,170,0,.18);
+  --accent-purple:#B84DFF;--accent-purple-glow:rgba(184,77,255,.18);
+  --accent-info:#4488FF;--accent-info-glow:rgba(68,136,255,.18);
+  --text-primary:#C8D8DA;--text-secondary:#5A7A80;--text-muted:#4A6670;--text-disabled:#2A3A40;
+  --border-subtle:rgba(0,212,170,.08);--border-default:rgba(0,212,170,.18);--border-strong:rgba(0,212,170,.40);--border-neutral:#1E2A2D;
+  --font-display:'Space Grotesk',sans-serif;--font-ui:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --radius-md:4px;--radius-lg:6px;--radius-xl:10px;--radius-2xl:14px;--radius-pill:999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-7:48px;
+  --ease-snap:cubic-bezier(.2,0,0,1);--ease-smooth:cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-void);background-image:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(0,212,170,.04) 0%,transparent 70%);color:var(--text-primary);font-family:var(--font-ui);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 80px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--space-5)}
+.mock-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-primary);background:var(--accent-primary-muted);border:1px solid var(--border-default);border-radius:var(--radius-pill);padding:4px 14px;display:inline-block}
+.screen-divider{display:flex;align-items:center;gap:var(--space-4);margin:var(--space-7) 0 var(--space-5)}
+.screen-divider::before,.screen-divider::after{content:'';flex:1;height:1px;background:var(--border-subtle)}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+.mono{font-family:var(--font-mono)}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px var(--space-6);background:rgba(10,14,15,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-subtle);margin-bottom:var(--space-6)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;letter-spacing:.02em}
+.brand b{color:var(--accent-primary)}
+.brand .v{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.nav{display:flex;gap:4px}
+.nav a{padding:6px 14px;border-radius:var(--radius-md);font-size:13px;color:var(--text-secondary)}
+.nav a.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+
+/* run header */
+.run-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-5)}
+.run-title{font-size:30px;line-height:1.1}
+.run-sub{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;padding:4px 10px;border-radius:var(--radius-pill);border:1px solid var(--border-neutral);color:var(--text-secondary)}
+.pill.agent{color:var(--accent-purple);border-color:var(--accent-purple-glow);background:rgba(184,77,255,.07)}
+.pill.mode{color:var(--accent-high);border-color:var(--accent-high-glow);background:rgba(255,107,53,.07)}
+.pill.live{color:var(--accent-primary);border-color:var(--border-strong);background:var(--accent-primary-muted)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* live meters */
+.meters{display:flex;gap:var(--space-2)}
+.meter{text-align:right;padding:8px 14px;border:1px solid var(--border-neutral);border-radius:var(--radius-lg);background:var(--bg-surface);min-width:92px}
+.meter .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.meter .val{font-family:var(--font-mono);font-size:19px;color:var(--text-primary);margin-top:2px}
+.meter .val.accent{color:var(--accent-primary)}
+
+/* ====== THE HUNT MAP (progress) ====== */
+.map{position:relative;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-2xl);padding:var(--space-6) var(--space-5) var(--space-5);margin-bottom:var(--space-4);overflow:hidden}
+.map::before{content:'';position:absolute;inset:0;background:radial-gradient(circle 240px at var(--spot,30%) 40%,rgba(0,212,170,.08),transparent 70%);transition:--spot 1s;pointer-events:none}
+.phases{position:relative;display:flex;justify-content:space-between;gap:var(--space-2)}
+.phases::before{content:'';position:absolute;top:26px;left:4%;right:4%;height:2px;background:linear-gradient(90deg,var(--accent-primary) var(--done,40%),var(--border-neutral) var(--done,40%));transition:--done 1.2s ease}
+.phase{position:relative;flex:1;text-align:center;z-index:2}
+.phase .node{width:54px;height:54px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg-raised);border:2px solid var(--border-neutral);font-family:var(--font-mono);font-size:18px;color:var(--text-muted);transition:all .4s}
+.phase .pname{margin-top:10px;font-size:12px;color:var(--text-muted);font-weight:500}
+.phase .pmeta{font-family:var(--font-mono);font-size:10px;color:var(--text-disabled);margin-top:3px}
+.phase.done .node{border-color:var(--accent-primary);color:var(--accent-primary);background:var(--accent-primary-muted);box-shadow:0 0 16px var(--accent-primary-glow)}
+.phase.done .pname{color:var(--text-secondary)}
+.phase.done .pmeta{color:var(--accent-primary-dim)}
+.phase.active .node{border-color:var(--accent-primary);color:var(--accent-primary);background:var(--bg-overlay);box-shadow:0 0 0 4px var(--accent-primary-muted),0 0 24px var(--accent-primary-glow);animation:pulse 1.6s infinite}
+.phase.active .pname{color:var(--accent-primary);font-weight:600}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px var(--accent-primary-muted),0 0 24px var(--accent-primary-glow)}50%{box-shadow:0 0 0 7px transparent,0 0 36px var(--accent-primary-glow)}}
+.phase.fog{opacity:.4;filter:blur(.4px)}
+.phase.fog .node{border-style:dashed}
+
+/* active phase detail */
+.now{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--space-4)}
+@media(max-width:860px){.now{grid-template-columns:1fr}}
+.panel{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);overflow:hidden}
+.panel-h{display:flex;align-items:center;justify-content:space-between;padding:12px var(--space-4);border-bottom:1px solid var(--border-subtle)}
+.panel-h .t{font-family:var(--font-display);font-size:13px;letter-spacing:.02em;color:var(--text-secondary)}
+.panel-b{padding:var(--space-3) var(--space-4)}
+
+/* step rows (fixes #2: running + pending + timer) */
+.step{display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1px solid var(--border-subtle)}
+.step:last-child{border-bottom:0}
+.step .ico{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--font-mono)}
+.step .nm{flex:1;font-size:13px}
+.step .nm small{color:var(--text-muted);font-family:var(--font-mono);font-size:11px}
+.step .tmr{font-family:var(--font-mono);font-size:12px;color:var(--text-muted)}
+.step.done .ico{background:var(--accent-primary-muted);color:var(--accent-primary);border:1px solid var(--border-default)}
+.step.done .tmr{color:var(--accent-primary-dim)}
+.step.run .ico{border:2px solid var(--accent-primary);border-top-color:transparent;animation:spin .8s linear infinite;color:transparent}
+.step.run .nm{color:var(--text-primary)}
+.step.run .tmr{color:var(--accent-primary)}
+.step.pend{opacity:.5}
+.step.pend .ico{border:1px dashed var(--border-neutral)}
+.step.pend .nm{color:var(--text-muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* reasoning stream */
+.stream{max-height:300px;overflow:auto;font-family:var(--font-mono);font-size:12px;line-height:1.75}
+.ln{display:flex;gap:8px;padding:2px 0}
+.ln .tg{flex-shrink:0;width:70px;text-align:right;color:var(--text-disabled)}
+.ln.think .tx{color:var(--text-secondary);font-style:italic}
+.ln.tool .tg{color:var(--accent-info)} .ln.tool .tx{color:var(--text-primary)}
+.ln.req .tg{color:var(--accent-amber)} .ln.req .tx{color:var(--text-secondary)}
+.ln.hit .tg{color:var(--accent-red)} .ln.hit .tx{color:var(--accent-red);font-weight:600}
+
+/* live findings ticker */
+.ftick{display:flex;gap:var(--space-2);margin-top:var(--space-4);flex-wrap:wrap}
+.sev{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12px;padding:6px 12px;border-radius:var(--radius-pill);border:1px solid}
+.sev .n{font-size:14px;font-weight:600}
+.sev.crit{color:var(--accent-red);border-color:var(--accent-red-glow);background:rgba(255,68,68,.07)}
+.sev.high{color:var(--accent-high);border-color:var(--accent-high-glow);background:rgba(255,107,53,.07)}
+.sev.med{color:var(--accent-amber);border-color:var(--accent-amber-glow);background:rgba(255,170,0,.07)}
+.sev.low{color:var(--accent-info);border-color:var(--accent-info-glow);background:rgba(68,136,255,.07)}
+.sev.info{color:var(--text-secondary);border-color:var(--border-neutral)}
+
+/* ====== RUN REPORT (results) ====== */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:var(--space-4);margin-bottom:var(--space-5)}
+@media(max-width:860px){.hero{grid-template-columns:1fr}}
+.verdict{background:linear-gradient(160deg,var(--bg-raised),var(--bg-surface));border:1px solid var(--border-default);border-radius:var(--radius-2xl);padding:var(--space-5)}
+.verdict .big{font-family:var(--font-display);font-size:38px;line-height:1;color:var(--accent-red)}
+.verdict .cap{color:var(--text-secondary);font-size:13px;margin-top:6px}
+.verdict .sevrow{display:flex;gap:var(--space-2);margin-top:var(--space-4);flex-wrap:wrap}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+.stat{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-3) var(--space-4)}
+.stat .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+.stat .v{font-family:var(--font-mono);font-size:20px;margin-top:4px}
+.stat .v.ac{color:var(--accent-primary)}
+
+/* agent path replay */
+.replay{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);padding:var(--space-4) var(--space-5);margin-bottom:var(--space-5)}
+.replay h3{font-size:13px;color:var(--text-secondary);letter-spacing:.02em;margin-bottom:var(--space-3)}
+.chain{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--font-mono);font-size:12px}
+.chain .c{padding:5px 11px;border-radius:var(--radius-md);background:var(--bg-raised);border:1px solid var(--border-neutral);color:var(--text-secondary)}
+.chain .c.k{color:var(--accent-red);border-color:var(--accent-red-glow)}
+.chain .arw{color:var(--text-disabled)}
+
+/* finding cards with PoC (fixes #5) */
+.sec-title{font-family:var(--font-display);font-size:16px;margin:var(--space-5) 0 var(--space-3);display:flex;align-items:center;gap:10px}
+.sec-title .ct{font-family:var(--font-mono);font-size:12px;color:var(--text-muted)}
+.fcard{background:var(--bg-surface);border:1px solid var(--border-subtle);border-left:3px solid var(--accent-red);border-radius:var(--radius-xl);margin-bottom:var(--space-3);overflow:hidden}
+.fcard.high{border-left-color:var(--accent-high)} .fcard.med{border-left-color:var(--accent-amber)}
+.fcard-h{display:flex;align-items:center;gap:12px;padding:var(--space-3) var(--space-4);cursor:pointer}
+.fcard-h .title{flex:1;font-weight:600;font-size:15px}
+.fcard-h .cls{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);background:var(--bg-raised);padding:3px 9px;border-radius:var(--radius-pill)}
+.fcard-h .chev{color:var(--text-muted)}
+.fcard-b{padding:0 var(--space-4) var(--space-4);border-top:1px solid var(--border-subtle)}
+.kv{display:flex;gap:10px;padding:8px 0;font-size:13px;border-bottom:1px solid var(--border-subtle)}
+.kv .k{width:88px;color:var(--text-muted);flex-shrink:0;font-size:12px}
+.kv .v{font-family:var(--font-mono);color:var(--text-primary);word-break:break-all}
+.poc{margin-top:var(--space-3)}
+.poc .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-primary);margin-bottom:6px}
+.code{background:var(--bg-void);border:1px solid var(--border-neutral);border-radius:var(--radius-md);padding:12px 14px;font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--text-primary);overflow:auto;white-space:pre}
+.code .mt{color:var(--accent-amber)} .code .ro{color:var(--accent-red)} .code .ok{color:var(--accent-primary)} .code .cm{color:var(--text-muted)}
+.poc-actions{display:flex;gap:8px;margin-top:10px}
+.btn{font-family:var(--font-ui);font-size:12px;padding:6px 14px;border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--accent-primary-muted);color:var(--accent-primary);cursor:pointer}
+.btn.ghost{background:transparent;border-color:var(--border-neutral);color:var(--text-secondary)}
+
+/* recon data (demoted) */
+.recon-fold{margin-top:var(--space-6);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);background:var(--bg-surface)}
+.recon-fold summary{padding:var(--space-4);cursor:pointer;color:var(--text-secondary);font-size:14px;list-style:none;display:flex;justify-content:space-between}
+.recon-fold summary::-webkit-details-marker{display:none}
+.recon-chips{display:flex;gap:var(--space-2);padding:0 var(--space-4) var(--space-4);flex-wrap:wrap}
+.rchip{font-family:var(--font-mono);font-size:12px;padding:6px 12px;border-radius:var(--radius-md);background:var(--bg-raised);border:1px solid var(--border-neutral);color:var(--text-secondary)}
+.rchip b{color:var(--accent-primary)}
+.note{font-size:12px;color:var(--text-muted);margin-top:var(--space-2)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><b>◢◤</b> WebKiller <span class="v">2.0</span></div>
+  <div class="nav"><a>Dashboard</a><a class="on">Agent Run</a><a>Tools</a><a>Settings</a></div>
+  <div class="pill live"><span class="dot"></span>Agent working</div>
+</div>
+
+<div class="wrap">
+
+  <div style="text-align:center;margin-bottom:var(--space-5)"><span class="mock-label">Base design · Screen 1 — Progress “The Hunt Map”</span></div>
+
+  <div class="run-head">
+    <div>
+      <div class="run-title mono">app.target.com</div>
+      <div class="run-sub">
+        <span class="pill agent">◇ AGENTIC</span>
+        <span class="pill mode">⚔ Aggressive</span>
+        <span class="pill">model: gemini-3.1-flash-lite</span>
+        <span class="pill live"><span class="dot"></span>step 4 / 5</span>
+      </div>
+    </div>
+    <div class="meters">
+      <div class="meter"><div class="k">Elapsed</div><div class="val" id="elapsed">01:48</div></div>
+      <div class="meter"><div class="k">Tokens</div><div class="val">38.4k</div></div>
+      <div class="meter"><div class="k">Cost</div><div class="val accent">$0.011</div></div>
+    </div>
+  </div>
+
+  <!-- THE MAP -->
+  <div class="map" id="map" style="--spot:62%">
+    <div class="phases" id="phases" style="--done:62%">
+      <div class="phase done"><div class="node">✓</div><div class="pname">Recon</div><div class="pmeta">6 subdomains</div></div>
+      <div class="phase done"><div class="node">✓</div><div class="pname">Map surface</div><div class="pmeta">65 urls · 24 params</div></div>
+      <div class="phase done"><div class="node">✓</div><div class="pname">Fingerprint</div><div class="pmeta">nginx · SPA</div></div>
+      <div class="phase active"><div class="node">⚡</div><div class="pname">Confirm</div><div class="pmeta">testing 14 classes</div></div>
+      <div class="phase fog"><div class="node">◆</div><div class="pname">Report</div><div class="pmeta">—</div></div>
+    </div>
+  </div>
+
+  <div class="now">
+    <div class="panel">
+      <div class="panel-h"><span class="t">▸ CURRENT PHASE — Confirm</span><span class="mono" style="font-size:11px;color:var(--text-muted)">5 / 14 classes</span></div>
+      <div class="panel-b">
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_xss <small>· dalfox · 8 tested</small></div><div class="tmr">4.1s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_sqli <small>· time-based · 8 tested</small></div><div class="tmr">11.3s</div></div>
+        <div class="step run"><div class="ico"></div><div class="nm">confirm_ssrf <small>· canary · param “next”…</small></div><div class="tmr" id="runtmr">3.2s</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_ssti <small>· queued</small></div><div class="tmr">—</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_nosqli <small>· queued</small></div><div class="tmr">—</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_jwt <small>· queued</small></div><div class="tmr">—</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><span class="t">▸ AGENT REASONING</span></div>
+      <div class="panel-b stream" id="stream">
+        <div class="ln think"><span class="tg">think</span><span class="tx">params look REST-ish; prioritising injection + SSRF on “url”, “next”.</span></div>
+        <div class="ln tool"><span class="tg">tool</span><span class="tx">confirm_xss → 8 parameterized urls</span></div>
+        <div class="ln hit"><span class="tg">FOUND</span><span class="tx">HIGH · reflected XSS on /search?q=</span></div>
+        <div class="ln tool"><span class="tg">tool</span><span class="tx">confirm_sqli → time-based probe</span></div>
+        <div class="ln hit"><span class="tg">FOUND</span><span class="tx">HIGH · time-based SQLi on /item?id=</span></div>
+        <div class="ln req"><span class="tg">GET</span><span class="tx">/go?next=//127.0.0.1/__canary</span></div>
+        <div class="ln think"><span class="tg">think</span><span class="tx">redirect followed server-side — probing SSRF reflection…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ftick">
+    <span class="sev crit"><span class="n">1</span> critical</span>
+    <span class="sev high"><span class="n">2</span> high</span>
+    <span class="sev med"><span class="n">1</span> medium</span>
+    <span class="sev low"><span class="n">3</span> low</span>
+    <span class="sev info"><span class="n">—</span> recon only shows map, no findings panel</span>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="screen-divider"><span class="mock-label">Base design · Screen 2 — Results “Run Report”</span></div>
+
+  <div class="run-head">
+    <div>
+      <div class="run-title mono">app.target.com</div>
+      <div class="run-sub">
+        <span class="pill agent">◇ AGENTIC</span><span class="pill mode">⚔ Aggressive</span>
+        <span class="pill">scan_8f3a · done</span><span class="pill">2m 14s</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px"><button class="btn ghost">Export JSON</button><button class="btn ghost">Export HTML</button><button class="btn">AI report ✦</button></div>
+  </div>
+
+  <div class="hero">
+    <div class="verdict">
+      <div class="big">4 confirmed</div>
+      <div class="cap">vulnerabilities proven with evidence · 3 more leads need manual review</div>
+      <div class="sevrow">
+        <span class="sev crit"><span class="n">1</span> critical</span>
+        <span class="sev high"><span class="n">2</span> high</span>
+        <span class="sev med"><span class="n">1</span> medium</span>
+      </div>
+    </div>
+    <div class="statgrid">
+      <div class="stat"><div class="k">Surface</div><div class="v ac">65<span style="font-size:12px;color:var(--text-muted)"> urls</span></div></div>
+      <div class="stat"><div class="k">Params tested</div><div class="v">24</div></div>
+      <div class="stat"><div class="k">Agent cost</div><div class="v ac">$0.013</div></div>
+      <div class="stat"><div class="k">Tool calls</div><div class="v">18</div></div>
+    </div>
+  </div>
+
+  <div class="replay">
+    <h3>WHAT THE AGENT DID</h3>
+    <div class="chain">
+      <span class="c">recon</span><span class="arw">→</span>
+      <span class="c">65 urls / 24 params</span><span class="arw">→</span>
+      <span class="c">js endpoints surfaced</span><span class="arw">→</span>
+      <span class="c k">confirm_xss ✦</span><span class="arw">→</span>
+      <span class="c k">confirm_sqli ✦</span><span class="arw">→</span>
+      <span class="c k">confirm_ssrf ✦</span><span class="arw">→</span>
+      <span class="c">http_request chain ×6</span><span class="arw">→</span>
+      <span class="c">report</span>
+    </div>
+  </div>
+
+  <div class="sec-title">Confirmed vulnerabilities <span class="ct">· sorted by severity</span></div>
+
+  <div class="fcard">
+    <div class="fcard-h"><span class="sev crit"><span class="n">CRIT</span></span><span class="title">Server-Side Template Injection</span><span class="cls">ssti</span><span class="chev">▾</span></div>
+    <div class="fcard-b">
+      <div class="kv"><span class="k">Endpoint</span><span class="v">GET /greet?name=</span></div>
+      <div class="kv"><span class="k">Parameter</span><span class="v">name</span></div>
+      <div class="kv"><span class="k">Impact</span><span class="v">arithmetic evaluated server-side → frequently RCE</span></div>
+      <div class="poc">
+        <div class="lbl">Proof of concept</div>
+        <div class="code"><span class="cm"># request</span>
+GET /greet?name=<span class="mt">{{1337*1337}}</span> HTTP/1.1
+Host: app.target.com
+
+<span class="cm"># response — payload was EVALUATED, not reflected</span>
+&lt;p&gt;Hello <span class="ro">1787569</span>&lt;/p&gt;</div>
+        <div class="poc-actions"><button class="btn">Copy request</button><button class="btn ghost">Copy as curl</button><button class="btn ghost">Re-test</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fcard high">
+    <div class="fcard-h"><span class="sev high"><span class="n">HIGH</span></span><span class="title">Time-based SQL Injection</span><span class="cls">sqli</span><span class="chev">▾</span></div>
+    <div class="fcard-b">
+      <div class="kv"><span class="k">Endpoint</span><span class="v">GET /item?id=</span></div>
+      <div class="kv"><span class="k">Evidence</span><span class="v">baseline 0.08s → payload 5.19s (reproduced ×2)</span></div>
+      <div class="poc">
+        <div class="lbl">Proof of concept</div>
+        <div class="code">GET /item?id=1<span class="mt">' AND (SELECT 1 FROM (SELECT(SLEEP(5)))a)-- -</span>
+<span class="cm"># → response delayed 5.19s, re-confirmed 5.11s</span></div>
+        <div class="poc-actions"><button class="btn">Copy request</button><button class="btn ghost">Copy as curl</button><button class="btn ghost">Re-test</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fcard high">
+    <div class="fcard-h"><span class="sev high"><span class="n">HIGH</span></span><span class="title">Server-Side Request Forgery</span><span class="cls">ssrf</span><span class="chev">▸</span></div>
+  </div>
+  <div class="fcard med">
+    <div class="fcard-h"><span class="sev med"><span class="n">MED</span></span><span class="title">CORS — arbitrary origin reflected + credentials</span><span class="cls">cors</span><span class="chev">▸</span></div>
+  </div>
+
+  <details class="recon-fold">
+    <summary><span>Recon data &amp; leads <span class="note" style="margin:0">— subdomains, urls, js endpoints, 3 unconfirmed leads</span></span><span class="mono" style="color:var(--text-muted)">▾</span></summary>
+    <div class="recon-chips">
+      <span class="rchip">subdomains <b>6</b></span><span class="rchip">live hosts <b>6</b></span><span class="rchip">urls <b>65</b></span>
+      <span class="rchip">params <b>24</b></span><span class="rchip">js endpoints <b>11</b></span><span class="rchip">leads (potential) <b>3</b></span>
+    </div>
+    <div class="note" style="padding:0 var(--space-4) var(--space-4)">Classic recon artifacts live here, demoted below the confirmed findings — in aggressive mode the vulnerabilities are the headline. A <b>recon-only</b> run shows the map + this section and no “confirmed” block.</div>
+  </details>
+
+</div>
+
+<script>
+// light motion: tick the running timer + advance the map spotlight to convey the "reveal"
+let t=3.2;setInterval(()=>{t+=0.1;const e=document.getElementById('runtmr');if(e)e.textContent=t.toFixed(1)+'s';},100);
+let s=108;setInterval(()=>{s++;const m=String(Math.floor(s/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');const e=document.getElementById('elapsed');if(e)e.textContent=m+':'+ss;},1000);
+</script>
+</body>
+</html>

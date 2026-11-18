@@ -1,9 +1,8 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const { bootstrapVenv, startBackend, stopBackend } = require('./electron/backend');
+const { startServer, stopServer } = require('./server/index');
 const { registerIpcHandlers } = require('./electron/ipc-handlers');
 const { isSetupComplete, getWebkillerHome } = require('./electron/paths');
-const { checkPython } = require('./electron/python-check');
 
 let mainWindow = null;
 
@@ -31,60 +30,33 @@ async function createWindow(port) {
   });
 }
 
+let serverPort = null;
+
 async function bootstrap() {
   getWebkillerHome();
   registerIpcHandlers();
 
-  const pythonCheck = await checkPython();
-  if (!pythonCheck.found || !pythonCheck.meetsMinimum) {
-    const msg = !pythonCheck.found
-      ? 'Python 3.8+ is required but was not found on your system.'
-      : `Python ${pythonCheck.version} found, but 3.8+ is required.`;
-
-    const instructions = {
-      darwin: 'Install: brew install python@3.12\nor download from python.org',
-      linux: 'Install: sudo apt install python3 python3-venv',
-      win32: 'Download from python.org\nMake sure to check "Add Python to PATH"',
-    };
-
-    dialog.showErrorBox(
-      'Python Required',
-      `${msg}\n\n${instructions[process.platform] || 'Install Python 3.8+ and restart.'}`
-    );
-    app.quit();
-    return;
-  }
-
   try {
-    await bootstrapVenv();
+    serverPort = await startServer();
+    await createWindow(serverPort);
   } catch (err) {
-    dialog.showErrorBox('Setup Error', `Failed to create Python environment:\n${err.message}`);
-    app.quit();
-    return;
-  }
-
-  try {
-    const port = await startBackend();
-    await createWindow(port);
-  } catch (err) {
-    dialog.showErrorBox('Backend Error', `Failed to start backend:\n${err.message}`);
+    const { dialog } = require('electron');
+    dialog.showErrorBox('Server Error', `Failed to start server:\n${err.message}`);
     app.quit();
   }
 }
 
 app.whenReady().then(bootstrap);
 
-app.on('before-quit', () => stopBackend());
+app.on('before-quit', () => stopServer());
 
 app.on('window-all-closed', () => {
-  stopBackend();
+  stopServer();
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('activate', async () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    const { getPort } = require('./electron/backend');
-    const port = getPort();
-    if (port) await createWindow(port);
+    if (serverPort) await createWindow(serverPort);
   }
 });

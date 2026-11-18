@@ -1,0 +1,292 @@
+const { loadProfile, getConfig } = require('./config');
+const { Scope } = require('./scope');
+const { Workspace } = require('./workspace');
+const { AssetStore } = require('./store');
+const { isValidTarget, splitTarget } = require('./validate');
+const moduleSettings = require('./module_settings');
+
+const MODULE_MAP = {};
+
+function _loadModules() {
+  const modules = {
+    subdomains_passive: './modules/subdomains_passive',
+    subdomains_active:  './modules/subdomains_active',
+    probe:              './modules/probe',
+    urls:               './modules/urls',
+    portscan:           './modules/portscan',
+    fingerprint:        './modules/fingerprint',
+    content:            './modules/content',
+    jsrecon:            './modules/jsrecon',
+    params:             './modules/params',
+    screenshots:        './modules/screenshots',
+    vuln_signal:        './modules/vuln_signal',
+    vuln_confirm:       './modules/vuln_confirm',
+    xss_confirm:        './modules/xss_confirm',
+    sqli_confirm:       './modules/sqli_confirm',
+    ssti_confirm:       './modules/ssti_confirm',
+    lfi_confirm:        './modules/lfi_confirm',
+    ssrf_confirm:       './modules/ssrf_confirm',
+    xxe_confirm:        './modules/xxe_confirm',
+    deser_confirm:      './modules/deser_confirm',
+    jwt_confirm:        './modules/jwt_confirm',
+    massassign_confirm: './modules/massassign_confirm',
+    nosqli_confirm:     './modules/nosqli_confirm',
+    cors_confirm:       './modules/cors_confirm',
+    openredirect_confirm: './modules/openredirect_confirm',
+    protopollution_confirm: './modules/protopollution_confirm',
+    graphql_confirm:    './modules/graphql_confirm',
+    authz_probe:        './modules/authz_probe',
+    bypass_403:         './modules/bypass_403',
+    secret_verify:      './modules/secret_verify',
+    osint_dns:          './modules/osint_dns',
+    tagging:            './modules/tagging',
+  };
+  for (const [name, modPath] of Object.entries(modules)) {
+    MODULE_MAP[name] = require(modPath);
+  }
+}
+
+_loadModules();
+
+class ScanEngine {
+  constructor() {
+    this.scans = new Map();
+    this.events = new Map();
+  }
+
+  startScan(target, profileName = 'quick', outOfScope = null, configOverrides = null, mode = 'classic') {
+    if (!isValidTarget(target)) throw new Error('invalid target');
+    const { host, port } = splitTarget(target);
+    const profile = loadProfile(profileName);
+    // Stored module/global settings form the base; explicit per-scan overrides win.
+    const merged = { ...moduleSettings.toOverrides(), ...(configOverrides || {}) };
+    if (port) merged.targetPort = port;
+    const config = getConfig(merged);
+    const workspace = new Workspace(host);
+    const oos = outOfScope || moduleSettings.globals().out_of_scope || null;
+    const scope = new Scope([`*.${host}`, host], oos);
+    const store = new AssetStore(workspace.root);
+    const scanId = workspace.scanId;
+
+    this.scans.set(scanId, {
+      scan_id: scanId,
+      target: host,
+      profile: profileName,
+      mode,
+      status: 'running',
+      started_at: Date.now() / 1000,
+      modules_total: mode === 'ai' ? 0 : profile.modules.length,
+      modules_done: 0,
+      current_module: null,
+      results: {},
+      workspace_path: workspace.root,
+    });
+    this.events.set(scanId, []);
+
+    const runner = mode === 'ai'
+      ? this._runAgenticScan(scanId, workspace, scope, store, config, profileName)
+      : this._runScan(scanId, profile, workspace, scope, store, config);
+    runner.catch((err) => {
+      const scan = this.scans.get(scanId);
+      if (scan) {
+        scan.status = 'error';
+        scan.error = err.message;
+      }
+      this._addEvent(scanId, 'error', err.message);
+    });
+
+    return scanId;
+  }
+
+  async _runAgenticScan(scanId, workspace, scope, store, config, profileName) {
+    const scan = this.scans.get(scanId);
+    const aiSettings = require('./ai/settings');
+    const s = aiSettings.load();
+    if (!s.enabled || !s.apiKey) throw new Error('AI is not configured — set a provider key in Settings');
+    const { runAgenticScan, TOOL_MODULES } = require('./ai/agent');
+    const allowIntrusive = ['aggressive', 'full'].includes(profileName);
+    // Drop the agent tools whose module the user disabled in Settings.
+    const exclude = Object.entries(TOOL_MODULES)
+      .filter(([, moduleKey]) => !moduleSettings.isEnabled(moduleKey))
+      .map(([friendly]) => friendly);
+    const res = await runAgenticScan({
+      target: workspace.target,
+      scope,
+      workspace,
+      config,
+      allowIntrusive,
+      exclude,
+      model: s.agentModel || s.model,
+      provider: aiSettings.getProvider(),
+      emit: (type, data) => this._addEvent(scanId, type, typeof data === 'string' ? data : JSON.stringify(data || {})),
+      runTool: (moduleName) => this._runModule(scanId, moduleName, workspace, scope, store, config),
+    });
+    scan.finished_at = Date.now() / 1000;
+    scan.current_module = null;
+    // A provider/auth failure before the agent ran any tool is a failed scan,
+    // not a completed one — surface it so the UI can guide the user to Settings.
+    if (res && res.error && !res.calls) {
+      scan.status = 'error';
+      scan.error = res.error;
+      this._addEvent(scanId, 'scan_done', 'error');
+    } else {
+      scan.status = 'completed';
+      if (res && res.error) scan.warning = res.error; // partial run: tools ran, then the provider failed
+      this._addEvent(scanId, 'scan_done', 'completed');
+    }
+  }
+
+  // Modules that can safely run at the same time (verified I/O deps)
+  static PARALLEL_GROUPS = {
+    'probe':          'discover',    // reads subdomains.txt
+    'portscan':       'discover',    // reads subdomains.txt
+    'urls':           'harvest',     // reads live.txt
+    'content':        'harvest',     // reads live.txt
+    'jsrecon':        'enrich',      // reads urls.txt + live.txt
+    'params':         'enrich',      // reads urls.txt
+    'vuln_confirm':   'confirm',     // reads findings.jsonl
+    'xss_confirm':    'confirm',     // reads urls.txt + findings.jsonl
+    'sqli_confirm':   'confirm',     // reads findings.jsonl + params.txt
+    'authz_probe':    'confirm',     // reads urls.txt
+    'bypass_403':     'confirm',     // reads findings.jsonl + hosts.jsonl
+    'secret_verify':  'confirm',     // reads findings.jsonl + urls.txt
+  };
+
+  async _runScan(scanId, profile, workspace, scope, store, config) {
+    const modules = profile.modules.filter(m => {
+      if (!MODULE_MAP[m]) {
+        this._addEvent(scanId, 'warn', `Unknown module: ${m}`);
+        return false;
+      }
+      if (!moduleSettings.isEnabled(m)) {
+        this._addEvent(scanId, 'skip', `Module disabled in Settings: ${m}`);
+        return false;
+      }
+      return true;
+    });
+    // Keep modules_total honest once disabled ones are dropped.
+    const scanRec = this.scans.get(scanId);
+    if (scanRec) scanRec.modules_total = modules.length;
+
+    const groups = this._buildGroups(modules);
+
+    for (const group of groups) {
+      if (group.length === 1) {
+        await this._runModule(scanId, group[0], workspace, scope, store, config);
+      } else {
+        this._addEvent(scanId, 'parallel_start', `Running ${group.length} modules in parallel: ${group.join(', ')}`);
+        await Promise.allSettled(
+          group.map(modName => this._runModule(scanId, modName, workspace, scope, store, config))
+        );
+      }
+    }
+
+    const scan = this.scans.get(scanId);
+    scan.status = 'completed';
+    scan.finished_at = Date.now() / 1000;
+    scan.current_module = null;
+    this._addEvent(scanId, 'scan_done', 'completed');
+  }
+
+  _buildGroups(modules) {
+    const groups = [];
+    let i = 0;
+    while (i < modules.length) {
+      const tag = ScanEngine.PARALLEL_GROUPS[modules[i]];
+      if (!tag) {
+        groups.push([modules[i]]);
+        i++;
+        continue;
+      }
+      const batch = [modules[i]];
+      while (i + 1 < modules.length && ScanEngine.PARALLEL_GROUPS[modules[i + 1]] === tag) {
+        batch.push(modules[++i]);
+      }
+      groups.push(batch);
+      i++;
+    }
+    return groups;
+  }
+
+  async _runModule(scanId, modName, workspace, scope, store, config) {
+    const scan = this.scans.get(scanId);
+    scan.current_module = modName;
+    this._addEvent(scanId, 'module_start', modName);
+    workspace.markPhase(modName, 'running');
+
+    const ModClass = MODULE_MAP[modName];
+    const mod = new ModClass(workspace, scope, config, (type, kwargs) => {
+      this._addEvent(scanId, type, JSON.stringify(kwargs || {}));
+    });
+
+    const result = await mod.run();
+    workspace.markPhase(modName, result.status);
+
+    scan.results[modName] = {
+      status: result.status,
+      items_count: result.items.length,
+      duration: Math.round(result.duration * 10) / 10,
+      tool_used: result.toolUsed,
+      fallback: result.fallback,
+      errors: result.errors,
+    };
+    scan.modules_done++;
+
+    store.addMany(modName, result.items);
+    this._addEvent(scanId, 'module_done', `${modName}: ${result.items.length} items in ${result.duration.toFixed(1)}s`);
+    return result;
+  }
+
+  getScan(scanId) {
+    return this.scans.get(scanId) || this._restoreFromDisk(scanId);
+  }
+
+  // Scans live in memory, so a restart loses them while their files remain on
+  // disk. Rebuild a read-only view from the workspace so past scans (and their
+  // AI report/triage) stay reachable. Returns null if not found on disk.
+  _restoreFromDisk(scanId) {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { OUTPUT_DIR } = require('./config');
+      if (!/^scan_[\w-]+$/.test(scanId) || !fs.existsSync(OUTPUT_DIR)) return null;
+      for (const target of fs.readdirSync(OUTPUT_DIR)) {
+        const dir = path.join(OUTPUT_DIR, target, scanId);
+        const stateFile = path.join(dir, 'state.json');
+        if (!fs.existsSync(stateFile)) continue;
+        let st = {};
+        try { st = JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { /* keep defaults */ }
+        return {
+          scan_id: scanId,
+          target: st.target || target,
+          profile: st.profile || 'unknown',
+          status: st.status || 'completed',
+          started_at: st.started_at,
+          finished_at: st.finished_at,
+          results: st.results || {},
+          workspace_path: dir,
+          restored: true,
+        };
+      }
+    } catch { /* fall through */ }
+    return null;
+  }
+
+  listScans() {
+    return [...this.scans.values()];
+  }
+
+  getEvents(scanId, after = 0) {
+    const events = this.events.get(scanId) || [];
+    return events.filter(e => e.seq > after);
+  }
+
+  _addEvent(scanId, eventType, data = '') {
+    if (!this.events.has(scanId)) this.events.set(scanId, []);
+    const events = this.events.get(scanId);
+    const seq = events.length + 1;
+    events.push({ seq, type: eventType, data, time: Date.now() / 1000 });
+  }
+}
+
+module.exports = { ScanEngine };

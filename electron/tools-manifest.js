@@ -200,23 +200,34 @@ const TOOLS_MANIFEST = {
     },
   },
 
-  // --- Python tools: pip install into shared venv ---
+  // --- Python tools: optional, user installs manually via pip ---
 
   arjun: {
-    type: 'pip',
-    package: 'arjun',
+    type: 'optional-pip',
     binaryName: 'arjun',
+    installInstructions: {
+      darwin: 'pip3 install arjun',
+      linux: 'pip3 install arjun',
+      win32: 'pip install arjun',
+    },
   },
   wafw00f: {
-    type: 'pip',
-    package: 'wafw00f',
+    type: 'optional-pip',
     binaryName: 'wafw00f',
+    installInstructions: {
+      darwin: 'pip3 install wafw00f',
+      linux: 'pip3 install wafw00f',
+      win32: 'pip install wafw00f',
+    },
   },
   ghauri: {
-    type: 'pip',
-    package: 'ghauri',
+    type: 'optional-pip',
     binaryName: 'ghauri',
-    fallbackUrl: 'https://github.com/r0oth3x49/ghauri.git',
+    installInstructions: {
+      darwin: 'pip3 install ghauri',
+      linux: 'pip3 install ghauri',
+      win32: 'pip install ghauri',
+    },
   },
 
   // --- System tools: manual install required ---

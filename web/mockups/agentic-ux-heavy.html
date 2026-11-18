@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebKiller — heavy run (many steps)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-void:#0A0E0F;--bg-surface:#111618;--bg-raised:#161D1F;--bg-overlay:#1A2428;
+  --accent-primary:#00D4AA;--accent-primary-dim:#00A888;--accent-primary-glow:rgba(0,212,170,.18);--accent-primary-muted:rgba(0,212,170,.06);
+  --accent-red:#FF4444;--accent-red-glow:rgba(255,68,68,.18);--accent-high:#FF6B35;--accent-high-glow:rgba(255,107,53,.18);
+  --accent-amber:#FFAA00;--accent-amber-glow:rgba(255,170,0,.18);--accent-purple:#B84DFF;--accent-info:#4488FF;--accent-info-glow:rgba(68,136,255,.18);
+  --text-primary:#C8D8DA;--text-secondary:#5A7A80;--text-muted:#4A6670;--text-disabled:#2A3A40;
+  --border-subtle:rgba(0,212,170,.08);--border-default:rgba(0,212,170,.18);--border-strong:rgba(0,212,170,.40);--border-neutral:#1E2A2D;
+  --font-display:'Space Grotesk',sans-serif;--font-ui:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --radius-md:4px;--radius-lg:6px;--radius-xl:10px;--radius-2xl:14px;--radius-pill:999px;
+  --space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-void);background-image:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(0,212,170,.04) 0%,transparent 70%);color:var(--text-primary);font-family:var(--font-ui);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 60px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--space-5)}
+.mono{font-family:var(--font-mono)}
+h1,h3{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px var(--space-6);background:rgba(10,14,15,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-subtle);margin-bottom:var(--space-5)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700}.brand b{color:var(--accent-primary)}.brand .v{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.nav{display:flex;gap:4px}.nav a{padding:6px 14px;border-radius:var(--radius-md);font-size:13px;color:var(--text-secondary)}.nav a.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;padding:4px 10px;border-radius:var(--radius-pill);border:1px solid var(--border-neutral);color:var(--text-secondary)}
+.pill.live{color:var(--accent-primary);border-color:var(--border-strong);background:var(--accent-primary-muted)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:blink 1.4s infinite}@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.mock-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-amber);background:rgba(255,170,0,.07);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-pill);padding:4px 14px;display:inline-block;margin-bottom:var(--space-5)}
+
+/* map (same fixed 5-phase backbone) */
+.map{position:relative;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-2xl);padding:var(--space-6) var(--space-5) var(--space-5);margin-bottom:var(--space-4)}
+.phases{position:relative;display:flex;justify-content:space-between}
+.phases::before{content:'';position:absolute;top:26px;left:4%;right:4%;height:2px;background:linear-gradient(90deg,var(--accent-primary) 62%,var(--border-neutral) 62%)}
+.phase{position:relative;flex:1;text-align:center;z-index:2}
+.phase .node{width:54px;height:54px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg-raised);border:2px solid var(--border-neutral);font-family:var(--font-mono);font-size:18px;color:var(--text-muted)}
+.phase .pname{margin-top:10px;font-size:12px;color:var(--text-muted);font-weight:500}.phase .pmeta{font-family:var(--font-mono);font-size:10px;color:var(--text-disabled);margin-top:3px}
+.phase.done .node{border-color:var(--accent-primary);color:var(--accent-primary);background:var(--accent-primary-muted);box-shadow:0 0 16px var(--accent-primary-glow)}.phase.done .pname{color:var(--text-secondary)}.phase.done .pmeta{color:var(--accent-primary-dim)}
+.phase.active .node{border-color:var(--accent-primary);color:var(--accent-primary);background:var(--bg-overlay);box-shadow:0 0 0 4px var(--accent-primary-muted),0 0 24px var(--accent-primary-glow);animation:pulse 1.6s infinite}.phase.active .pname{color:var(--accent-primary);font-weight:600}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px var(--accent-primary-muted),0 0 24px var(--accent-primary-glow)}50%{box-shadow:0 0 0 7px transparent,0 0 36px var(--accent-primary-glow)}}
+.phase.fog{opacity:.4}.phase.fog .node{border-style:dashed}
+
+.callout{display:flex;gap:12px;align-items:flex-start;background:rgba(255,170,0,.05);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:var(--space-4);font-size:13px;color:var(--text-secondary)}
+.callout b{color:var(--accent-amber)}
+
+.now{display:grid;grid-template-columns:1.15fr .85fr;gap:var(--space-4)}
+@media(max-width:860px){.now{grid-template-columns:1fr}}
+.panel{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);overflow:hidden}
+.panel-h{display:flex;align-items:center;justify-content:space-between;padding:12px var(--space-4);border-bottom:1px solid var(--border-subtle)}
+.panel-h .t{font-family:var(--font-display);font-size:13px;color:var(--text-secondary)}
+.panel-h .cnt{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.scrollbody{max-height:420px;overflow:auto;padding:var(--space-2) var(--space-4) var(--space-3)}
+
+.grp{display:flex;align-items:center;justify-content:space-between;margin:var(--space-3) 0 4px;padding-top:8px;border-top:1px solid var(--border-subtle)}
+.grp:first-child{border-top:0;padding-top:0}
+.grp .gn{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-primary-dim);font-weight:600}
+.grp .gc{font-family:var(--font-mono);font-size:10px;color:var(--text-muted)}
+
+.step{display:flex;align-items:center;gap:11px;padding:7px 2px}
+.step .ico{width:19px;height:19px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:var(--font-mono)}
+.step .nm{flex:1;font-size:13px;display:flex;align-items:center;gap:8px}
+.step .nm small{color:var(--text-muted);font-family:var(--font-mono);font-size:11px}
+.step .tmr{font-family:var(--font-mono);font-size:12px;color:var(--text-muted)}
+.step.done .ico{background:var(--accent-primary-muted);color:var(--accent-primary);border:1px solid var(--border-default)}.step.done .tmr{color:var(--accent-primary-dim)}
+.step.run .ico{border:2px solid var(--accent-primary);border-top-color:transparent;animation:spin .8s linear infinite}.step.run .tmr{color:var(--accent-primary)}
+.step.pend{opacity:.45}.step.pend .ico{border:1px dashed var(--border-neutral)}.step.pend .nm{color:var(--text-muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chip{font-family:var(--font-mono);font-size:10px;padding:2px 7px;border-radius:var(--radius-pill);border:1px solid}
+.chip.crit{color:var(--accent-red);border-color:var(--accent-red-glow);background:rgba(255,68,68,.07)}
+.chip.high{color:var(--accent-high);border-color:var(--accent-high-glow);background:rgba(255,107,53,.07)}
+.chip.med{color:var(--accent-amber);border-color:var(--accent-amber-glow);background:rgba(255,170,0,.07)}
+.chip.zero{color:var(--text-muted);border-color:var(--border-neutral)}
+.grprow{display:flex;align-items:center;gap:11px;padding:7px 2px;background:var(--accent-primary-muted);border-radius:var(--radius-md);margin-top:4px}
+.grprow .ico{width:19px;height:19px;border-radius:50%;background:var(--accent-primary-muted);color:var(--accent-primary);border:1px solid var(--border-default);display:flex;align-items:center;justify-content:center;font-size:10px}
+.grprow .nm{flex:1;font-size:13px}.grprow .nm b{color:var(--accent-primary)}
+
+.stream{max-height:420px;overflow:auto;font-family:var(--font-mono);font-size:12px;line-height:1.7;padding:var(--space-2) var(--space-4) var(--space-3)}
+.ln{display:flex;gap:8px;padding:2px 0}.ln .tg{flex-shrink:0;width:60px;text-align:right;color:var(--text-disabled)}
+.ln.think .tx{color:var(--text-secondary);font-style:italic}.ln.tool .tg{color:var(--accent-info)}.ln.tool .tx{color:var(--text-primary)}
+.ln.req .tg{color:var(--accent-amber)}.ln.req .tx{color:var(--text-secondary)}.ln.hit .tg{color:var(--accent-red)}.ln.hit .tx{color:var(--accent-red);font-weight:600}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><b>◢◤</b> WebKiller <span class="v">2.0</span></div>
+  <div class="nav"><a>Dashboard</a><a class="on">Agent Run</a><a>Tools</a><a>Settings</a></div>
+  <div class="pill live"><span class="dot"></span>Agent working</div>
+</div>
+<div class="wrap">
+  <span class="mock-label">Heavy run · many steps — the map still holds</span>
+
+  <div class="map">
+    <div class="phases">
+      <div class="phase done"><div class="node">✓</div><div class="pname">Recon</div><div class="pmeta">8 subdomains</div></div>
+      <div class="phase done"><div class="node">✓</div><div class="pname">Surface</div><div class="pmeta">420 urls · 96 params</div></div>
+      <div class="phase done"><div class="node">✓</div><div class="pname">Fingerprint</div><div class="pmeta">Laravel · API</div></div>
+      <div class="phase active"><div class="node">⚡</div><div class="pname">Confirm</div><div class="pmeta">9 / 14 · 41 requests</div></div>
+      <div class="phase fog"><div class="node">◆</div><div class="pname">Report</div><div class="pmeta">—</div></div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span style="font-size:18px">ℹ</span>
+    <div>چرا با زیاد‌شدنِ کار سرریز نمی‌شود: <b>مپِ بالا همیشه همین ۵ فازِ ثابت است</b> (هرچقدر هم کار زیاد شود). حجمِ واقعی — ۱۴ کلاسِ confirm و ۴۱ درخواست — در پنلِ پایین با <b>گروه‌بندیِ دسته‌ای + شمارش + اسکرول</b> جذب می‌شود. مثلاً ۴۱ درخواستِ ریز در یک ردیفِ <b>http_request ×41</b> جمع می‌شود، نه ۴۱ ردیفِ جدا.</div>
+  </div>
+
+  <div class="now">
+    <div class="panel">
+      <div class="panel-h"><span class="t">▸ CURRENT PHASE — Confirm</span><span class="cnt">9 / 14 classes · scroll ↓</span></div>
+      <div class="scrollbody">
+        <div class="grp"><span class="gn">Injection</span><span class="gc">4/4 done</span></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_xss <small>· dalfox · 8 urls</small> <span class="chip high">HIGH ×1</span></div><div class="tmr">4.1s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_sqli <small>· time-based · 8 urls</small> <span class="chip high">HIGH ×1</span></div><div class="tmr">16.2s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_ssti <small>· 12 urls</small> <span class="chip crit">CRIT ×1</span></div><div class="tmr">3.0s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_lfi <small>· 12 urls</small></div><div class="tmr">5.4s</div></div>
+
+        <div class="grp"><span class="gn">Server-side</span><span class="gc">3/3 done</span></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_ssrf <small>· canary + metadata</small> <span class="chip high">HIGH ×1</span></div><div class="tmr">7.8s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_xxe <small>· 30 endpoints</small> <span class="chip zero">0</span></div><div class="tmr">9.1s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_deser <small>· 30 endpoints</small> <span class="chip zero">0</span></div><div class="tmr">8.3s</div></div>
+
+        <div class="grp"><span class="gn">Auth &amp; API</span><span class="gc">2/7 · running</span></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_jwt <small>· alg:none + weak-secret</small></div><div class="tmr">2.2s</div></div>
+        <div class="step done"><div class="ico">✓</div><div class="nm">confirm_massassign <small>· 60 endpoints</small> <span class="chip med">MED ×1</span></div><div class="tmr">12.0s</div></div>
+        <div class="step run"><div class="ico"></div><div class="nm">confirm_nosqli <small>· 60 endpoints · 38/60…</small></div><div class="tmr" id="rt">6.4s</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_cors <small>· queued</small></div><div class="tmr">—</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_openredirect <small>· queued</small></div><div class="tmr">—</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_protopp <small>· queued</small></div><div class="tmr">—</div></div>
+        <div class="step pend"><div class="ico"></div><div class="nm">confirm_graphql <small>· queued</small></div><div class="tmr">—</div></div>
+
+        <div class="grp"><span class="gn">Fine-grained probes</span><span class="gc">grouped</span></div>
+        <div class="grprow"><div class="ico">⇄</div><div class="nm"><b>http_request ×41</b> <small style="color:var(--text-muted)">· agent chaining — tap to expand</small></div><div class="tmr" style="color:var(--accent-primary-dim)">live</div></div>
+        <div class="grprow"><div class="ico">✎</div><div class="nm"><b>record_finding ×4</b> <small style="color:var(--text-muted)">· confirmed so far</small></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><span class="t">▸ AGENT REASONING</span><span class="cnt">live</span></div>
+      <div class="stream" id="stream">
+        <div class="ln think"><span class="tg">think</span><span class="tx">API-first (Laravel). query-params sparse — pivoting to JSON bodies for mass-assign / nosqli.</span></div>
+        <div class="ln tool"><span class="tg">tool</span><span class="tx">confirm_ssti → {{1337*1337}}</span></div>
+        <div class="ln hit"><span class="tg">FOUND</span><span class="tx">CRIT · SSTI on /render?tpl=</span></div>
+        <div class="ln req"><span class="tg">POST</span><span class="tx">/api/profile {role:"admin"}</span></div>
+        <div class="ln think"><span class="tg">think</span><span class="tx">role reflected back — confirming mass-assignment vs echo…</span></div>
+        <div class="ln hit"><span class="tg">FOUND</span><span class="tx">MED · mass assignment /api/profile</span></div>
+        <div class="ln req"><span class="tg">POST</span><span class="tx">/api/login {"pass":{"$ne":null}}</span></div>
+        <div class="ln tool"><span class="tg">tool</span><span class="tx">confirm_nosqli → 60 endpoints</span></div>
+        <div class="ln think"><span class="tg">think</span><span class="tx">testing operator-injection on auth + query endpoints…</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+let t=6.4;setInterval(()=>{t+=0.1;const e=document.getElementById('rt');if(e)e.textContent=t.toFixed(1)+'s';},100);
+</script>
+</body>
+</html>

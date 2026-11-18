@@ -2,33 +2,42 @@ const { ipcMain } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { checkPython } = require('./python-check');
 const { ToolInstaller } = require('./tool-installer');
 const { TOOLS_MANIFEST } = require('./tools-manifest');
 const {
   isSetupComplete,
   getSetupMarker,
   getToolsBinDir,
-  getVenvBinDir,
   getPlatformKey,
   getWebkillerHome,
 } = require('./paths');
 
 function registerIpcHandlers() {
-  ipcMain.handle('setup:check-python', async () => {
-    return await checkPython();
-  });
-
   ipcMain.handle('setup:tools-status', async () => {
     const binDir = getToolsBinDir();
-    const venvBin = getVenvBinDir();
     const binSuffix = process.platform === 'win32' ? '.exe' : '';
     const results = {};
 
     for (const [name, manifest] of Object.entries(TOOLS_MANIFEST)) {
+      if (manifest.type === 'system' || manifest.type === 'optional-pip') {
+        let onSystem = false;
+        try {
+          const cmd = process.platform === 'win32' ? 'where' : 'which';
+          execSync(`${cmd} ${manifest.binaryName}`, { stdio: 'pipe', timeout: 3000 });
+          onSystem = true;
+        } catch {}
+
+        results[name] = {
+          installed: onSystem,
+          location: onSystem ? 'system' : 'missing',
+          type: manifest.type,
+          installInstructions: manifest.installInstructions || null,
+        };
+        continue;
+      }
+
       const binName = manifest.binaryName + binSuffix;
       const inToolsBin = fs.existsSync(path.join(binDir, binName));
-      const inVenvBin = fs.existsSync(path.join(venvBin, binName));
 
       let onSystem = false;
       try {
@@ -38,8 +47,8 @@ function registerIpcHandlers() {
       } catch {}
 
       results[name] = {
-        installed: inToolsBin || inVenvBin || onSystem,
-        location: inToolsBin ? 'tools-bin' : inVenvBin ? 'venv' : onSystem ? 'system' : 'missing',
+        installed: inToolsBin || onSystem,
+        location: inToolsBin ? 'tools-bin' : onSystem ? 'system' : 'missing',
         type: manifest.type,
         installInstructions: manifest.installInstructions || null,
       };
