@@ -16,7 +16,7 @@ function route() {
   $$('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.route === hash.split('/').slice(0,2).join('/')));
   if (hash === '/setup') renderSetup();
   else if (hash === '/') renderDashboard();
-  else if (hash === '/scan') renderNewScan();
+  else if (hash === '/scan' || hash.startsWith('/scan?')) renderNewScan(new URLSearchParams(hash.split('?')[1] || '').get('mode'));
   else if (hash.startsWith('/scan/')) renderScanProgress(hash.split('/')[2]);
   else if (hash.startsWith('/results/')) renderResults(hash.split('/')[2]);
   else if (hash === '/tools') { location.hash = '/settings'; return; } // merged into Settings → Dependencies
@@ -70,9 +70,7 @@ async function renderDashboard() {
   $('#statDone').textContent = scans.filter(s => s.status === 'completed').length;
 
   let totalFindings = 0;
-  scans.forEach(s => {
-    Object.values(s.results || {}).forEach(r => { totalFindings += r.items_count || 0; });
-  });
+  scans.forEach(s => { totalFindings += (s.findings || 0); });
   $('#statFindings').textContent = totalFindings;
 
   if (!scans.length) {
@@ -83,7 +81,7 @@ async function renderDashboard() {
         <h2 class="dash-hero-t">Start your first scan</h2>
         <p class="dash-hero-d">Point it at a target. It maps the attack surface — and in agent mode, tests it and confirms findings with proof.</p>
         <div class="dash-modes">
-          <a href="#/scan" class="dash-mode"><div class="dm-ic">◇</div><div class="dm-t">AI agent <span class="badge badge-confirmed">beta</span></div><div class="dm-d">The agent picks the steps and confirms findings itself.</div></a>
+          <a href="#/scan?mode=ai" class="dash-mode"><div class="dm-ic">◇</div><div class="dm-t">AI agent <span class="badge badge-confirmed">beta</span></div><div class="dm-d">The agent picks the steps and confirms findings itself.</div></a>
           <a href="#/scan" class="dash-mode"><div class="dm-ic">▤</div><div class="dm-t">Classic recon</div><div class="dm-d">A fixed pipeline you control, module by module.</div></a>
         </div>
       </div>
@@ -97,7 +95,7 @@ async function renderDashboard() {
     return;
   }
 
-  const findingsOf = s => Object.values(s.results || {}).reduce((n, r) => n + (r.items_count || 0), 0);
+  const findingsOf = s => s.findings || 0;
   $('#scanList').innerHTML = `
     <div class="scan-rows">${scans.map(s => {
       const err = s.status === 'error';
@@ -123,9 +121,10 @@ function prettyModuleKey(k) {
   return String(k).replace(/_confirm$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-async function renderNewScan() {
+async function renderNewScan(initialMode) {
   const [profiles, aiCfg, modData] = await Promise.all([api('/profiles'), api('/ai/settings'), api('/modules')]);
-  const ORDER = { passive: 0, quick: 1, full: 2, aggressive: 3, osint: 4 };
+  const startAi = initialMode === 'ai'; // deep-linked from the dashboard "AI agent" card → open in AI mode
+  const ORDER = { passive: 0, quick: 1, full: 2, aggressive: 3 };
   const sorted = [...profiles].sort((a, b) => (ORDER[a.name] ?? 9) - (ORDER[b.name] ?? 9));
   const aiReady = !!(aiCfg && aiCfg.enabled && aiCfg.hasKey);
   const metaByKey = {};
@@ -133,74 +132,86 @@ async function renderNewScan() {
   const SEC_ORDER = ['Discovery', 'Mapping', 'Checks', 'Other'];
 
   app.innerHTML = `
-    <div class="section-header">
-      <div>
-        <h1 class="section-title">New Scan</h1>
-        <p class="section-sub">Pick a target and a mode</p>
+    <div class="ns">
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">New Scan</h1>
+          <p class="section-sub">Pick a target and a mode</p>
+        </div>
       </div>
-    </div>
-    <div class="card animate-in" style="max-width:720px;animation-delay:.05s">
-      <div class="card-body">
-        <div class="form-group">
-          <label class="form-label">Target</label>
-          <input class="form-input" id="targetInput" placeholder="example.com" autofocus>
-        </div>
 
-        <div class="form-group">
-          <label class="form-label">Mode</label>
-          <div class="choice-grid" id="modeGrid">
-            <div class="choice-card selected" data-mode="classic">
-              <div class="choice-name">Classic</div>
-              <div class="choice-desc">A fixed pipeline you control.</div>
+      <div class="ns-grid animate-in" style="animation-delay:.05s">
+        <div class="card ns-form">
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Target</label>
+              <input class="form-input" id="targetInput" placeholder="example.com" autofocus>
             </div>
-            <div class="choice-card" data-mode="ai">
-              <div class="choice-name">AI Agent <span class="choice-tag">beta</span></div>
-              <div class="choice-desc">The agent picks the steps.</div>
-              <div class="choice-status ${aiReady ? 'ok' : 'warn'}">${aiReady ? '✓ provider configured' : '⚠ needs a provider key'}</div>
+
+            <div class="form-group">
+              <label class="form-label">Out of scope <span class="label-hint">— one per line, optional</span></label>
+              <textarea class="form-textarea form-input" id="outScope" rows="2" placeholder="staging.example.com&#10;internal.example.com"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Mode</label>
+              <div class="choice-grid" id="modeGrid">
+                <div class="choice-card${startAi ? '' : ' selected'}" data-mode="classic">
+                  <div class="choice-name">Classic</div>
+                  <div class="choice-desc">A fixed pipeline you control.</div>
+                </div>
+                <div class="choice-card${startAi ? ' selected' : ''}" data-mode="ai">
+                  <div class="choice-name">AI Agent <span class="choice-tag">beta</span></div>
+                  <div class="choice-desc">The agent picks the steps.</div>
+                  <div class="choice-status ${aiReady ? 'ok' : 'warn'}">${aiReady ? '✓ provider configured' : '⚠ needs a provider key'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" id="classicProfile"${startAi ? ' hidden' : ''}>
+              <label class="form-label">Profile</label>
+              <div class="np-seg" id="profileSeg">
+                ${sorted.map(p => { const n = (p.modules || []).length; return `
+                  <button class="np-pill${p.name === 'quick' ? ' on' : ''}" data-profile="${esc(p.name)}" title="${esc(p.description)}">
+                    <span class="pn">${esc(p.name)}</span><span class="pc">${n} module${n === 1 ? '' : 's'}</span>
+                  </button>`; }).join('')}
+              </div>
+            </div>
+
+            <div class="form-group" id="aiScope"${startAi ? '' : ' hidden'}>
+              <label class="form-label">What the agent may do</label>
+              <div class="choice-grid">
+                <div class="choice-card selected" data-aiscope="recon">
+                  <div class="choice-name">Recon only</div>
+                  <div class="choice-desc">Map the surface — no payloads sent.</div>
+                </div>
+                <div class="choice-card" data-aiscope="active">
+                  <div class="choice-name">Active tests</div>
+                  <div class="choice-desc">Also confirm vulnerabilities (intrusive).</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="form-group" id="classicProfile">
-          <label class="form-label">Profile</label>
-          <div class="np-seg" id="profileSeg">
-            ${sorted.map(p => { const n = (p.modules || []).length; return `
-              <button class="np-pill${p.name === 'quick' ? ' on' : ''}" data-profile="${esc(p.name)}" title="${esc(p.description)}">
-                <span class="pn">${esc(p.name)}</span><span class="pc">${n} module${n === 1 ? '' : 's'}</span>
-              </button>`; }).join('')}
-          </div>
-          <div class="np-plan" id="npPlan"></div>
+        <div class="ns-preview">
+          <div class="np-plan" id="npPlan"${startAi ? ' hidden' : ''}></div>
+          <div class="np-plan pb" id="aiPlaybook"${startAi ? '' : ' hidden'}></div>
         </div>
+      </div>
 
-        <div class="form-group" id="aiScope" hidden>
-          <label class="form-label">What the agent may do</label>
-          <div class="choice-grid">
-            <div class="choice-card selected" data-aiscope="recon">
-              <div class="choice-name">Recon only</div>
-              <div class="choice-desc">Map the surface — no payloads sent.</div>
-            </div>
-            <div class="choice-card" data-aiscope="active">
-              <div class="choice-name">Active tests</div>
-              <div class="choice-desc">Also confirm vulnerabilities (intrusive).</div>
-            </div>
-          </div>
-          <div class="np-plan pb" id="aiPlaybook"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Out of scope <span class="label-hint">— one per line, optional</span></label>
-          <textarea class="form-textarea form-input" id="outScope" placeholder="staging.example.com&#10;internal.example.com"></textarea>
-        </div>
-        <button class="btn btn-primary btn-lg" id="startBtn" style="width:100%;justify-content:center;margin-top:var(--space-4)">
+      <div class="ns-bar">
+        <div class="ns-sum" id="nsSum"></div>
+        <button class="btn btn-primary btn-md" id="startBtn">
           <svg class="icon" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
-          Launch Scan
+          <span id="startLbl">Launch Scan</span>
         </button>
       </div>
     </div>
   `;
 
   let selectedProfile = 'quick';
-  let scanMode = 'classic';
+  let scanMode = startAi ? 'ai' : 'classic';
   let aiScopeChoice = 'recon';
 
   // Scan-plan preview: the chosen profile's modules grouped by section,
@@ -258,12 +269,12 @@ async function renderNewScan() {
         if (m && m.intrusive) cls += ' intr';
         return `<span class="np-chip ${cls}"><span class="dot"></span>${esc(label)}</span>`;
       }).join('');
+      const desc = locked ? `${ph.keys.length} active checks · unlocked with Active tests` : esc(ph.desc);
       return `<div class="pb-phase${locked ? ' locked' : ''}">
         <div class="pb-num">${locked ? '🔒' : i + 1}</div>
         <div class="pb-body">
-          <div class="pb-name">${ph.name}${locked ? ' <span class="pb-lock">unlocked with Active tests</span>' : ''}</div>
-          <div class="pb-desc">${esc(ph.desc)}</div>
-          ${ph.keys.length ? `<div class="np-chips">${chips}</div>` : ''}
+          <div class="pb-head"><span class="pb-name">${ph.name}</span><span class="pb-desc">${desc}</span></div>
+          ${ph.keys.length && !locked ? `<div class="np-chips">${chips}</div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -272,6 +283,17 @@ async function renderNewScan() {
       <div class="pb-rail">${rows}</div>`;
   }
   renderPlaybook('recon');
+
+  // A one-line, always-visible summary of what Launch will run (the sticky bar
+  // keeps selections in view even when the left column scrolls off).
+  function renderSum() {
+    const el = $('#nsSum'); if (!el) return;
+    const t = ((($('#targetInput') || {}).value) || '').trim() || 'target';
+    el.innerHTML = scanMode === 'ai'
+      ? `$ scan <b>${esc(t)}</b> · ai agent${aiScopeChoice === 'active' ? ' · <span class="intr">active tests</span>' : ' · recon only'}`
+      : `$ scan <b>${esc(t)}</b> · ${esc(selectedProfile)}`;
+  }
+  renderSum();
 
   const wireGroup = (sel, onPick) => $$(sel).forEach(card => card.addEventListener('click', () => {
     $$(sel).forEach(c => c.classList.remove('selected'));
@@ -282,25 +304,28 @@ async function renderNewScan() {
     $$('#profileSeg .np-pill').forEach(p => p.classList.remove('on'));
     pill.classList.add('on');
     selectedProfile = pill.dataset.profile;
-    renderPlan(selectedProfile);
+    renderPlan(selectedProfile); renderSum();
   }));
-  wireGroup('#aiScope .choice-card', c => { aiScopeChoice = c.dataset.aiscope; renderPlaybook(aiScopeChoice); });
+  wireGroup('#aiScope .choice-card', c => { aiScopeChoice = c.dataset.aiscope; renderPlaybook(aiScopeChoice); renderSum(); });
   wireGroup('#modeGrid .choice-card', c => {
     scanMode = c.dataset.mode;
     const ai = scanMode === 'ai';
     $('#classicProfile').hidden = ai;
     $('#aiScope').hidden = !ai;
+    $('#npPlan').hidden = ai;
+    $('#aiPlaybook').hidden = !ai;
+    renderSum();
   });
 
-  $('#startBtn').addEventListener('click', async () => {
+  const launch = async () => {
     const target = $('#targetInput').value.trim();
-    if (!target) { toast('Enter a target domain', 'error'); return; }
+    if (!target) { const ti = $('#targetInput'); if (ti) { ti.classList.add('err'); ti.focus(); } toast('Enter a target domain', 'error'); return; }
     if (scanMode === 'ai' && !aiReady) { toast('Set a provider key in Settings first', 'error'); location.hash = '/settings'; return; }
     // In AI mode the "profile" only gates intrusive tools, so map the agent's
     // scope choice onto a backend profile (aggressive = intrusive allowed).
     const profile = scanMode === 'ai' ? (aiScopeChoice === 'active' ? 'aggressive' : 'quick') : selectedProfile;
     $('#startBtn').disabled = true;
-    $('#startBtn').textContent = 'Launching...';
+    const lbl = $('#startLbl'); if (lbl) lbl.textContent = 'Launching…';
     const outScope = $('#outScope').value.split('\n').map(s => s.trim()).filter(Boolean);
     const res = await api('/scan', { method: 'POST', body: { target, profile, out_of_scope: outScope, mode: scanMode } });
     if (res.scan_id) {
@@ -308,9 +333,15 @@ async function renderNewScan() {
     } else {
       toast(res.error || 'Failed to start scan', 'error');
       $('#startBtn').disabled = false;
-      $('#startBtn').textContent = 'Launch Scan';
+      if (lbl) lbl.textContent = 'Launch Scan';
     }
-  });
+  };
+  $('#startBtn').addEventListener('click', launch);
+  const tin = $('#targetInput');
+  if (tin) {
+    tin.addEventListener('input', () => { tin.classList.remove('err'); renderSum(); });
+    tin.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); launch(); } });
+  }
 }
 
 /* ── SCAN PROGRESS ──────────────────────── */
@@ -324,101 +355,121 @@ async function renderScanProgress(scanId) {
   const profile = scan.profile || 'unknown';
   const moduleNames = Object.keys(scan.results || {});
 
+  if (agTimer) { clearInterval(agTimer); agTimer = null; }
   app.innerHTML = `
-    <div class="section-header">
+    <div class="ag-head">
       <div>
-        <h1 class="section-title">${esc(scan.target)}</h1>
-        <p class="section-sub">Profile: <span class="badge badge-info">${esc(profile)}</span> · ${scan.mode === 'ai' ? '<span class="badge badge-confirmed">AI Agent</span>' : scan.modules_done + '/' + scan.modules_total + ' modules'}</p>
-      </div>
-      <div>${statusBadge(scan.status)}</div>
-    </div>
-    <div class="progress-bar" style="margin-bottom:var(--space-5)">
-      <div class="progress-fill" id="progressFill" style="width:${pct(scan)}%"></div>
-    </div>
-    <div class="pipeline" id="pipelineChips"></div>
-    <div class="scan-grid">
-      <div class="card">
-        <div class="card-header"><span class="card-title">Module Results</span></div>
-        <div id="moduleResults"></div>
-      </div>
-      <div class="terminal">
-        <div class="terminal-bar">
-          <div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot amber"></div><div class="terminal-dot green"></div></div>
-          <div class="terminal-title">live log</div>
+        <div class="ag-title">${esc(scan.target)}</div>
+        <div class="ag-sub">
+          <span class="ag-pill">▤ CLASSIC</span>
+          <span class="ag-pill mode">⚔ ${esc(profile)}</span>
+          <span class="ag-pill live" id="agPhasePill"><span class="dot"></span>${scan.status === 'running' ? 'running…' : esc(scan.status)}</span>
+          ${scan.status === 'running' ? '<button class="btn btn-ghost btn-sm" id="scStop" style="margin-left:8px">■ Stop</button>' : ''}
         </div>
-        <div class="terminal-body" id="terminal"></div>
+      </div>
+      <div class="ag-meters">
+        <div class="ag-meter"><div class="k">Elapsed</div><div class="val" id="agElapsed">00:00</div></div>
+        <div class="ag-meter"><div class="k">Modules</div><div class="val" id="scMods">${scan.modules_done || 0}/${scan.modules_total || 0}</div></div>
+        <div class="ag-meter"><div class="k">Items</div><div class="val ac" id="scItems">0</div></div>
       </div>
     </div>
+    <div class="progress-bar sc-progress"><div class="progress-fill" id="progressFill" style="width:${pct(scan)}%"></div></div>
+    <div class="ag-now">
+      <div class="terminal ag-term">
+        <div class="terminal-bar"><div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot amber"></div><div class="terminal-dot green"></div></div><div class="terminal-title">scan run — live</div><span class="cnt" id="agStepCnt"></span></div>
+        <div class="terminal-body ag-stream" id="agStream"><div class="ag-empty" style="padding:var(--space-4)">waiting for modules…</div></div>
+      </div>
+    </div>
+    <div class="ag-ftick" id="agFtick"></div>
   `;
 
-  updateModuleResults(scan);
-  startSSE(scanId);
-}
+  // Reuse the agentic timeline components (agStream/agAddStep/agFinishStep/agFinding)
+  // by giving them the same DOM ids + state. No phase map in classic — just the stream.
+  agProgressState = {
+    reached: 0, steps: 0, stepEls: {}, http: 0, find: 0,
+    sev: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, leadHits: {},
+    t0: (scan.started_at ? scan.started_at * 1000 : Date.now()), done: false, stopped: false,
+    target: scan.target, items: 0,
+  };
+  agTimer = setInterval(() => {
+    const st = agProgressState; if (!st) return;
+    const e = Math.max(0, Math.floor((Date.now() - st.t0) / 1000));
+    const el = $('#agElapsed'); if (el) el.textContent = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+    $$('.ag-step.run .tmr').forEach(t => { const s = +t.dataset.start || Date.now(); t.textContent = ((Date.now() - s) / 1000).toFixed(1) + 's'; });
+  }, 200);
 
-function updateModuleResults(scan) {
-  const el = $('#moduleResults');
-  if (!el) return;
-  const results = scan.results || {};
-  if (!Object.keys(results).length) {
-    el.innerHTML = '<div style="color:var(--text-muted);padding:var(--space-4);font-size:var(--text-sm)">Waiting for modules...</div>';
-    return;
-  }
-  el.innerHTML = Object.entries(results).map(([name, r]) => `
-    <div class="tool-row">
-      <div>
-        <div class="tool-name">${esc(name)}</div>
-        <div class="tool-modules">${r.tool_used || 'python'}${r.fallback ? ' (fallback)' : ''} · ${r.duration}s</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--accent-primary)">${r.items_count}</span>
-        <div class="tool-status ${r.status === 'success' ? 'installed' : r.status === 'skipped' ? '' : 'missing'}"></div>
-      </div>
-    </div>`).join('');
+  startSSE(scanId);
+  const scStop = $('#scStop');
+  if (scStop) scStop.addEventListener('click', async () => {
+    const ok = await depConfirm('Stop this scan?', '<p style="color:var(--text-secondary);line-height:1.6;margin:0">The scan halts now. Results gathered so far are kept. You can launch a new scan anytime.</p>', 'Stop scan');
+    if (!ok) return;
+    scStop.disabled = true; scStop.textContent = 'Stopping…';
+    try { await api(`/scan/${scanId}/stop`, { method: 'POST' }); } catch { /* SSE reflects the stop */ }
+  });
 }
 
 function startSSE(scanId) {
   if (eventSource) eventSource.close();
   eventSource = new EventSource(`/api/scan/${scanId}/events`);
-  const term = $('#terminal');
+  const seen = new Set(); // module_start/done arrive twice (engine string + module JSON) — dedupe by name
 
   eventSource.onmessage = async (e) => {
-    const ev = JSON.parse(e.data);
+    let ev; try { ev = JSON.parse(e.data); } catch { return; }
+    const d = ev.data;
 
     if (ev.type === 'end') {
-      eventSource.close();
-      setStatus(ev.status === 'completed' ? 'Ready' : 'Error', ev.status === 'error' ? 'error' : '');
+      if (agTimer) { clearInterval(agTimer); agTimer = null; }
+      eventSource.close(); eventSource = null;
+      setStatus(ev.status === 'completed' ? 'Ready' : ev.status === 'stopped' ? 'Stopped' : 'Error', ev.status === 'error' ? 'error' : '');
       if ($('#progressFill')) $('#progressFill').style.width = '100%';
-      const scan = await api(`/scan/${scanId}`);
-      updateModuleResults(scan);
-      const hdr = $$('.section-header')[0];
-      if (hdr && ev.status === 'completed') {
-        const btn = document.createElement('a');
-        btn.href = `#/results/${scanId}`;
-        btn.className = 'btn btn-primary';
-        btn.textContent = 'View Results';
-        hdr.querySelector('div:last-child')?.replaceWith(btn);
+      const st = agProgressState; if (st) { st.done = ev.status !== 'stopped'; st.stopped = ev.status === 'stopped'; }
+      const pill = $('#agPhasePill'); if (pill) { pill.classList.remove('live'); pill.innerHTML = ev.status === 'completed' ? '✓ complete' : ev.status === 'stopped' ? '■ stopped' : '✕ error'; }
+      const stop = $('#scStop'); if (stop) stop.remove();
+      const sub = $('.ag-sub');
+      if (sub && !$('#scViewResults') && (ev.status === 'completed' || ev.status === 'stopped')) {
+        const b = document.createElement('a'); b.id = 'scViewResults'; b.href = `#/results/${scanId}`;
+        b.className = 'btn btn-primary btn-sm'; b.style.marginLeft = '8px'; b.textContent = 'View Results →';
+        sub.appendChild(b);
       }
       return;
     }
 
-    if (term) {
-      const t = new Date(ev.time * 1000).toLocaleTimeString('en', {hour12: false});
-      term.innerHTML += `<div class="terminal-line"><span class="time">${t}</span><span class="type type-${ev.type}">[${ev.type}]</span>${esc(ev.data)}</div>`;
-      term.scrollTop = term.scrollHeight;
-    }
-
     if (ev.type === 'module_start') {
-      let modLabel = ev.data;
-      try { modLabel = JSON.parse(ev.data).module || ev.data; } catch {}
-      setStatus(`Scanning: ${modLabel}`, 'scanning');
+      let name; try { name = JSON.parse(d).module; } catch { name = d; }
+      if (!name || seen.has('s:' + name)) return; seen.add('s:' + name);
+      agAddStep(name, ev.time);
+      setStatus(`Scanning: ${name}`, 'scanning');
+      return;
     }
     if (ev.type === 'module_done') {
+      let name; try { name = JSON.parse(d).module; } catch { const m = String(d).match(/^(\S+):/); name = m ? m[1] : d; }
+      if (!name || seen.has('d:' + name)) return; seen.add('d:' + name);
       const scan = await api(`/scan/${scanId}`);
+      const r = (scan.results || {})[name] || {};
+      const ok = !r.status || r.status === 'success' || r.status === 'completed';
+      agFinishStep(name, { found: r.items_count || 0, status: ok ? 'success' : (r.status || 'error') });
+      const rows = agProgressState.stepEls[name] || []; const row = rows[rows.length - 1];
+      if (row && !row.querySelector('.smp')) { const smp = document.createElement('div'); smp.className = 'smp'; smp.textContent = (r.tool_used || 'built-in') + (r.fallback ? ' · fallback' : ''); row.appendChild(smp); }
+      if (row && r.duration != null) { const tmr = row.querySelector('.tmr'); if (tmr) tmr.textContent = (+r.duration).toFixed(1) + 's'; } // authoritative server duration (correct on reload)
       if ($('#progressFill')) $('#progressFill').style.width = `${pct(scan)}%`;
-      const sub = $('.section-sub');
-      if (sub) sub.innerHTML = sub.innerHTML.replace(/\d+\/\d+ modules/, `${scan.modules_done}/${scan.modules_total} modules`);
-      updateModuleResults(scan);
+      const mods = $('#scMods'); if (mods) mods.textContent = `${scan.modules_done || 0}/${scan.modules_total || 0}`;
+      const items = Object.values(scan.results || {}).reduce((n, x) => n + (x.items_count || 0), 0);
+      const its = $('#scItems'); if (its) its.textContent = items;
+      return;
     }
+
+    if (ev.type === 'confirmed' || ev.type === 'finding') {
+      let o = {}; try { o = JSON.parse(d); } catch {}
+      const sev = String(o.severity || o.sev || 'info'); const nm = o.name || o.vuln_class || o.title || ev.type;
+      if (ev.type === 'confirmed') { agFinding(sev); agStream('hit', `${sev.toUpperCase()} — ${nm}${o.url ? ' ' + o.url : ''}`, ev.time); }
+      else { agStream('sys', `lead: ${nm}`, ev.time); }
+      return;
+    }
+    if (ev.type === 'scan_done') { agStream(d === 'completed' ? 'end' : 'end bad', 'scan ' + d, ev.time); return; }
+    if (ev.type === 'log') { let msg = d; try { msg = JSON.parse(d).msg || d; } catch {} agStream('sys', msg, ev.time); return; }
+    if (ev.type === 'error' || ev.type === 'module_error') { agStream('hit', 'error: ' + (typeof d === 'string' ? d : JSON.stringify(d)), ev.time); return; }
+    // parallel_start / skip / warn / anything else → a muted line, so nothing is silently dropped
+    agStream('sys', typeof d === 'string' ? (d || ev.type) : `${ev.type}: ${JSON.stringify(d)}`, ev.time);
   };
 }
 
@@ -608,120 +659,10 @@ async function resOsintView(scanId, content) {
 async function renderResults(scanId) {
   const scan = await api(`/scan/${scanId}`);
   if (!scan || !scan.status) { location.hash = "/"; return; } // a real 404 has no status; an errored scan keeps its status
-  if (scan.mode === 'ai') return renderAgenticResults(scanId, scan);
-
-  app.innerHTML = `
-    <div class="section-header">
-      <div>
-        <h1 class="section-title">${esc(scan.target)}</h1>
-        <p class="section-sub">Scan: ${esc(scanId)} · ${statusBadge(scan.status)}</p>
-      </div>
-      <div style="display:flex;gap:var(--space-2)">
-        <button class="btn btn-ghost btn-sm" onclick="exportResults('${scanId}','json')">Export JSON</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportResults('${scanId}','html')">Export HTML</button>
-      </div>
-    </div>
-    <div class="tabs" id="resultTabs"></div>
-    <div id="resultContent"></div>
-  `;
-
-  // Five consolidated views instead of ten overlapping file-dumps:
-  // Hosts (subdomains+live+hosts), Endpoints (urls+params+js), Findings
-  // (findings+confirmed), OSINT, AI Assist.
-  const tabs = [
-    { id: 'hosts', label: 'Hosts' },
-    { id: 'endpoints', label: 'Endpoints' },
-    { id: 'findings', label: 'Findings' },
-    { id: 'osint', label: 'OSINT' },
-    { id: 'ai', label: 'AI Assist' },
-  ];
-
-  function renderMarkdown(md) {
-    const lines = String(md || '').split('\n');
-    const inline = t => esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
-    let html = '', inList = false;
-    for (const line of lines) {
-      if (/^\s*[-*]\s+/.test(line)) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(line.replace(/^\s*[-*]\s+/, ''))}</li>`; continue; }
-      if (inList) { html += '</ul>'; inList = false; }
-      const h = line.match(/^(#{1,4})\s+(.*)/);
-      if (h) { const lvl = Math.min(h[1].length + 1, 6); html += `<h${lvl} class="md-h">${inline(h[2])}</h${lvl}>`; continue; }
-      if (line.trim()) html += `<p>${inline(line)}</p>`;
-    }
-    if (inList) html += '</ul>';
-    return html;
-  }
-
-  async function loadAiTab(content) {
-    const cfg = await api('/ai/settings');
-    if (!cfg.enabled || !cfg.hasKey) {
-      content.innerHTML = `<div class="empty-state"><div class="empty-icon">✦</div><div class="empty-text">AI is ${cfg.enabled ? 'missing an API key' : 'turned off'}</div><a href="#/settings" class="btn btn-primary btn-sm">Open AI Settings</a></div>`;
-      return;
-    }
-    content.innerHTML = `
-      <div class="ai-actions">
-        <button class="btn btn-primary btn-sm" id="aiGenReport">Generate Report</button>
-        <button class="btn btn-ghost btn-sm" id="aiGenTriage">Triage Findings</button>
-        <span id="aiPanelStatus" class="test-status"></span>
-      </div>
-      <div id="aiOutput"></div>`;
-
-    async function run(kind) {
-      const status = $('#aiPanelStatus');
-      $('#aiGenReport').disabled = true; $('#aiGenTriage').disabled = true;
-      status.textContent = 'Asking the model…'; status.className = 'test-status testing';
-      let res;
-      try { res = await api(`/scan/${scanId}/ai/${kind}`, { method: 'POST' }); }
-      catch { res = { ok: false, error: 'request failed' }; }
-      $('#aiGenReport').disabled = false; $('#aiGenTriage').disabled = false;
-      if (!res.ok) { status.textContent = `✗ ${res.error || 'failed'}`; status.className = 'test-status fail'; return; }
-      const tok = res.usage && res.usage.total_tokens ? ` · ${res.usage.total_tokens} tokens` : '';
-      status.textContent = `✓ done${tok}`; status.className = 'test-status ok';
-      if (kind === 'report') {
-        $('#aiOutput').innerHTML = `<div class="card"><div class="card-body md-body">${renderMarkdown(res.markdown)}</div></div>`;
-      } else {
-        const items = res.items || [];
-        const rows = items.map(it => `
-          <div class="finding-row"${it.keep === false ? ' style="opacity:.5"' : ''}>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">${severityBadge(it.severity || 'info')}<span class="badge badge-info">P${it.priority}</span>${it.keep === false ? '<span class="badge badge-medium">likely FP</span>' : ''}</div>
-            <div style="flex:1">
-              <div class="finding-name">${esc(it.name)}</div>
-              <div class="finding-url">${esc(it.url || '')}</div>
-              ${it.reason ? `<div class="finding-evidence">${esc(it.reason)}</div>` : ''}
-            </div>
-          </div>`).join('');
-        $('#aiOutput').innerHTML = `<div style="margin:0 0 12px;color:var(--text-secondary);font-size:var(--text-sm)">${items.length} ranked · ${res.total} total findings</div><div class="card">${rows || '<div class="empty-state"><div class="empty-text">No findings to triage</div></div>'}</div>`;
-      }
-    }
-    $('#aiGenReport').addEventListener('click', () => run('report'));
-    $('#aiGenTriage').addEventListener('click', () => run('triage'));
-  }
-
-  async function loadTab(tab) {
-    $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab.id));
-    const content = $('#resultContent');
-    content.innerHTML = resEmpty('Loading…');
-    try {
-      if (tab.id === 'ai') return await loadAiTab(content);
-      if (tab.id === 'hosts') return await resHostsView(scanId, content);
-      if (tab.id === 'endpoints') return await resEndpointsView(scanId, content);
-      if (tab.id === 'findings') return await resFindingsView(scanId, content);
-      if (tab.id === 'osint') return await resOsintView(scanId, content);
-    } catch (e) {
-      content.innerHTML = resEmpty('Error loading data.');
-    }
-  }
-
-  const tabsEl = $('#resultTabs');
-  for (const tab of tabs) {
-    const el = document.createElement('div');
-    el.className = 'tab' + (tab.id === 'hosts' ? ' active' : '');
-    el.dataset.tab = tab.id;
-    el.innerHTML = `${tab.label}`;
-    el.addEventListener('click', () => loadTab(tab));
-    tabsEl.appendChild(el);
-  }
-
-  loadTab(tabs[0]);
+  // Classic and AI scans write the same workspace files, so both render through the
+  // one polished results view (hero + finding cards + recon fold). The pill just
+  // says CLASSIC vs AGENTIC. This is how the classic results match the AI quality.
+  return renderAgenticResults(scanId, scan);
 }
 
 /* ── TOOLS ──────────────────────── */
@@ -823,6 +764,7 @@ async function renderSettings() {
   const suggested = s.suggestedModels || {};
   const presetKeys = Object.keys(presets);
 
+  depsDirty = false; // this fresh render already reflects the current tool state
   const total = modules.length;
   const blocked = modules.filter(m => m.status === 'blocked').length;
   const ready = total - blocked;
@@ -991,7 +933,8 @@ async function renderSettings() {
         <div class="form-group"><label class="form-label">API Base URL</label><input class="form-input" id="aiBaseURL" value="${esc(s.baseURL || '')}" placeholder="https://..."></div>
         <div class="form-group"><label class="form-label">API Key</label><input class="form-input" id="aiKey" type="password" placeholder="${s.hasKey ? '•••• ' + esc(s.keyMasked) + ' — leave blank to keep' : 'paste your API key'}">${s.insecureKey ? '<div class="inline-warn">⚠ stored unencrypted — dev run without Electron keychain</div>' : ''}</div>
         <div class="form-group"><label class="form-label">Model <span class="label-hint">— report &amp; triage</span></label><input class="form-input" id="aiModel" list="modelSuggest" value="${esc(s.model || '')}" placeholder="model id"><datalist id="modelSuggest"></datalist></div>
-        <div class="form-group" style="margin-bottom:0"><label class="form-label">Agent model <span class="label-hint">— fast model for the agentic loop</span></label><input class="form-input" id="aiAgentModel" value="${esc(s.agentModel || '')}" placeholder="e.g. google/gemini-3.1-flash-lite"></div>
+        <div class="form-group"><label class="form-label">Agent model <span class="label-hint">— fast model for the agentic loop</span></label><input class="form-input" id="aiAgentModel" value="${esc(s.agentModel || '')}" placeholder="e.g. google/gemini-3.1-flash-lite"></div>
+        <div class="form-group" style="margin-bottom:0"><label class="form-label">Max agent tool-calls <span class="label-hint">— how hard the agent runs; higher = more thorough, more tokens</span></label><input class="form-input" id="aiMaxCalls" type="number" min="1" max="200" value="${esc(String(s.maxToolCalls || 50))}" placeholder="50"></div>
         <div class="ai-note">Recon data is sent to this provider, so it leaves your machine — for sensitive targets run a local model. DeepSeek or Qwen are plenty; Gemini Flash is a step up.</div>
         <div class="settings-actions"><button class="btn btn-primary" id="aiSave">Save</button><button class="btn btn-ghost" id="aiTest">Test connection</button><span id="aiTestStatus" class="test-status"></span></div>
       </div>
@@ -1007,6 +950,9 @@ async function renderSettings() {
   // ---- tabs ----
   let depsLoaded = false;
   $$('.set-tabs button').forEach(b => b.addEventListener('click', () => {
+    // A dependency was installed/removed since this render → the module banner/pills
+    // are stale; re-render Settings fresh when the user returns to the Modules tab.
+    if (b.dataset.tab === 'modules' && depsDirty) { depsDirty = false; renderSettings(); return; }
     $$('.set-tabs button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
     $$('.set-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === b.dataset.tab));
@@ -1136,7 +1082,7 @@ async function renderSettings() {
     if (sug.length) $('#aiModel').value = sug[0];
   });
   function aiBody() {
-    const body = { enabled: $('#aiEnabled').checked, provider: $('#aiProvider').value, baseURL: $('#aiBaseURL').value.trim(), model: $('#aiModel').value.trim(), agentModel: $('#aiAgentModel').value.trim() };
+    const body = { enabled: $('#aiEnabled').checked, provider: $('#aiProvider').value, baseURL: $('#aiBaseURL').value.trim(), model: $('#aiModel').value.trim(), agentModel: $('#aiAgentModel').value.trim(), maxToolCalls: parseInt(($('#aiMaxCalls') || {}).value, 10) || 50 };
     const key = $('#aiKey').value.trim();
     if (key) body.apiKey = key;
     return body;
@@ -1165,10 +1111,12 @@ async function renderSettings() {
 
 const DEP_LABEL = { ready: 'ready', untested: 'untested version', incompatible: 'incompatible', broken: 'broken', missing: 'not installed' };
 let depPollTimer = null;
+let depPopWired = false;  // ⋯-menu outside-click closer is attached once, not per render
+let depsDirty = false;    // a tool was installed/removed → the Modules banner/pills are stale
 
 function depSize(b) { if (!b) return ''; const mb = b / 1048576; return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB'; }
 function depRuntimeNote(t) {
-  return (t.runtime || []).map(r => r.dep === 'chrome' ? 'needs Chrome at run time' : r.dep === 'root' ? 'SYN scan needs root' : r.dep === 'npcap' ? 'needs Npcap' : r.dep === 'libpcap' ? 'needs libpcap' : 'needs ' + r.dep).join(' · ');
+  return (t.runtime || []).map(r => r.dep === 'chrome' ? 'needs Chrome installed to run' : r.dep === 'root' ? 'SYN scan needs sudo (else connect-scan)' : r.dep === 'npcap' ? 'needs Npcap on Windows' : r.dep === 'libpcap' ? 'needs libpcap' : 'needs ' + r.dep).join(' · ');
 }
 
 function depRow(t) {
@@ -1205,9 +1153,9 @@ function depRow(t) {
       ${t.path ? `<button data-dep-copy="${esc(t.path)}">Copy path</button>` : ''}
       ${t.homepage ? `<a href="${esc(t.homepage)}" target="_blank" rel="noopener">Homepage ↗</a>` : ''}
     </div></div>`;
-    return `<div class="dep-row avail" data-dep="${esc(t.id)}"><span class="res-dot ${rt ? 'warn' : 'up'}"></span>
+    return `<div class="dep-row avail" data-dep="${esc(t.id)}"><span class="res-dot up"></span>
       <div class="dep-main"><div class="dep-name">${esc(t.displayName)} <span class="dep-meta">${esc(meta)}</span> ${tags.join(' ')}</div>
-        <div class="dep-sub">${rt ? `<span class="dep-rt">▲ ${esc(rt)}</span> · ` : ''}<span class="mono">${esc(t.path || '')}</span></div></div>
+        <div class="dep-sub">${rt ? `<span class="dep-rt">ⓘ ${esc(rt)}</span> · ` : ''}<span class="mono">${esc(t.path || '')}</span></div></div>
       ${menu}</div>`;
   }
 
@@ -1244,7 +1192,7 @@ function depPoll() {
   depPollTimer = setInterval(async () => {
     let prog; try { prog = await api('/deps/progress'); } catch { return; }
     const ids = Object.keys(prog);
-    if (!ids.length) { clearInterval(depPollTimer); renderDepsTab(); return; }
+    if (!ids.length) { clearInterval(depPollTimer); depsDirty = true; renderDepsTab(); return; }
     ids.forEach(id => {
       const row = document.querySelector(`.dep-row[data-dep="${id}"]`); if (!row) return;
       const p = prog[id];
@@ -1289,7 +1237,14 @@ async function renderDepsTab() {
     box.querySelectorAll('.dep-pop').forEach(p => p.hidden = true);
     pop.hidden = open;
   }));
-  document.addEventListener('click', () => box.querySelectorAll('.dep-pop').forEach(p => p.hidden = true), { once: true });
+  // Close an open ⋯ menu on ANY outside click. Attached once at module scope so it
+  // survives re-renders and queries the live DOM — the old per-render {once:true}
+  // listener got consumed by an unrelated click before a menu was ever opened, so
+  // clicking elsewhere never closed it.
+  if (!depPopWired) {
+    depPopWired = true;
+    document.addEventListener('click', () => $$('#setDepsBody .dep-pop').forEach(p => p.hidden = true));
+  }
 
   async function startInstall(id) { await api('/deps/install', { method: 'POST', body: { id } }); depPoll(); renderDepsTab(); }
   box.querySelectorAll('[data-dep-install]').forEach(b => b.addEventListener('click', async e => {
@@ -1310,7 +1265,7 @@ async function renderDepsTab() {
     e.stopPropagation();
     const id = b.dataset.depUninstall;
     await api('/deps/uninstall', { method: 'POST', body: { id } });
-    toast(`${id} removed`, 'info'); renderDepsTab();
+    depsDirty = true; toast(`${id} removed`, 'info'); renderDepsTab();
   }));
 
   const all = $('#depInstallAll');
@@ -1334,7 +1289,7 @@ function esc(s) { const d = document.createElement('div'); d.textContent = Strin
 function pct(scan) { return scan.modules_total ? Math.round((scan.modules_done / scan.modules_total) * 100) : 0; }
 
 function statusBadge(status) {
-  const map = { running: 'badge-medium', completed: 'badge-low', error: 'badge-critical', failed: 'badge-critical', created: 'badge-info' };
+  const map = { running: 'badge-medium', completed: 'badge-low', error: 'badge-critical', failed: 'badge-critical', created: 'badge-info', stopped: 'badge-info' };
   const label = status === 'error' ? 'failed' : status;
   return `<span class="badge ${map[status] || 'badge-info'}">${label}</span>`;
 }
@@ -1608,6 +1563,7 @@ async function renderAgenticProgress(scanId, scan) {
           <span class="ag-pill agent">◇ AGENTIC</span>
           <span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span>
           <span class="ag-pill live" id="agPhasePill"><span class="dot"></span>starting…</span>
+          <button class="btn btn-ghost btn-sm" id="agStop" style="margin-left:8px">■ Stop</button>
         </div>
       </div>
       <div class="ag-meters">
@@ -1620,21 +1576,17 @@ async function renderAgenticProgress(scanId, scan) {
       ${AG_PHASE_DEFS.map((p, i) => `<div class="ag-phase fog" data-ph="${i}"><div class="ag-node">${i + 1}</div><div class="ag-pname">${p.name}</div><div class="ag-pmeta"></div></div>`).join('')}
     </div></div>
     <div class="ag-now">
-      <div class="ag-panel">
-        <div class="ag-panel-h"><span class="t">▸ ACTIVITY</span><span class="cnt" id="agStepCnt"></span></div>
-        <div class="ag-scroll" id="agSteps"><div class="ag-empty" style="padding:var(--space-4)">waiting for the agent…</div></div>
-      </div>
       <div class="terminal ag-term">
-        <div class="terminal-bar"><div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot amber"></div><div class="terminal-dot green"></div></div><div class="terminal-title">agent reasoning — live</div></div>
-        <div class="terminal-body ag-stream" id="agStream"></div>
+        <div class="terminal-bar"><div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot amber"></div><div class="terminal-dot green"></div></div><div class="terminal-title">agent run — live</div><span class="cnt" id="agStepCnt"></span></div>
+        <div class="terminal-body ag-stream" id="agStream"><div class="ag-empty" style="padding:var(--space-4)">waiting for the agent…</div></div>
       </div>
     </div>
     <div class="ag-ftick" id="agFtick"></div>
   `;
   agProgressState = {
     reached: 0, steps: 0, stepEls: {}, http: 0, find: 0,
-    sev: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
-    t0: (scan.started_at ? scan.started_at * 1000 : Date.now()), done: false,
+    sev: { critical: 0, high: 0, medium: 0, low: 0, info: 0 }, leadHits: {},
+    t0: (scan.started_at ? scan.started_at * 1000 : Date.now()), done: false, stopped: false,
     target: scan.target, lastError: null,
   };
   agTimer = setInterval(() => {
@@ -1645,6 +1597,13 @@ async function renderAgenticProgress(scanId, scan) {
   }, 200);
   agSetPhase(0);
   startAgenticSSE(scanId, agProgressState);
+  const agStopBtn = $('#agStop');
+  if (agStopBtn) agStopBtn.addEventListener('click', async () => {
+    const ok = await depConfirm('Stop this scan?', '<p style="color:var(--text-secondary);line-height:1.6;margin:0">The agent halts now. Findings confirmed so far are kept; in-flight recon is discarded. You can launch a new scan anytime.</p>', 'Stop scan');
+    if (!ok) return;
+    agStopBtn.disabled = true; agStopBtn.textContent = 'Stopping…';
+    try { await api(`/scan/${scanId}/stop`, { method: 'POST' }); } catch { /* SSE reflects the stop */ }
+  });
 }
 
 function agSetPhase(i) {
@@ -1652,67 +1611,121 @@ function agSetPhase(i) {
   st.reached = Math.max(st.reached, i);
   const r = st.reached, last = AG_PHASE_DEFS.length - 1;
   $$('#agPhases .ag-phase').forEach((el, idx) => {
-    el.classList.remove('done', 'active', 'fog');
+    el.classList.remove('done', 'active', 'fog', 'stopped');
     const node = el.querySelector('.ag-node');
-    if (idx < r || (idx === r && st.done)) { el.classList.add('done'); node.textContent = '✓'; }
-    else if (idx === r) { el.classList.add('active'); node.textContent = '⚡'; }
+    if (idx < r) { el.classList.add('done'); node.textContent = '✓'; }
+    else if (idx === r) {
+      if (st.stopped) { el.classList.add('stopped'); node.textContent = '■'; }
+      else if (st.done) { el.classList.add('done'); node.textContent = '✓'; }
+      else { el.classList.add('active'); node.textContent = '⚡'; }
+    }
     else { el.classList.add('fog'); node.textContent = idx + 1; }
   });
   const phasesEl = $('#agPhases');
-  if (phasesEl) phasesEl.style.setProperty('--done', st.done ? 1 : (r / last));
+  if (phasesEl) phasesEl.style.setProperty('--done', (st.done && !st.stopped) ? 1 : (r / last));
   const pill = $('#agPhasePill');
-  if (pill && !st.done) pill.innerHTML = `<span class="dot"></span>${AG_PHASE_DEFS[r] ? AG_PHASE_DEFS[r].name : ''}`;
+  if (pill && !st.done && !st.stopped) pill.innerHTML = `<span class="dot"></span>${AG_PHASE_DEFS[r] ? AG_PHASE_DEFS[r].name : ''}`;
 }
 
-function agAddStep(name) {
-  const st = agProgressState, box = $('#agSteps'); if (!st || !box) return;
-  const first = box.querySelector('.ag-empty'); if (first) first.remove();
-  const row = document.createElement('div');
-  row.className = 'ag-step run';
-  row.innerHTML = `<div class="ico"></div><div class="nm"><span class="lbl">${esc(name)}</span></div><div class="tmr" data-start="${Date.now()}">0.0s</div>`;
-  box.appendChild(row); box.scrollTop = box.scrollHeight;
-  st.stepEls[name] = row; st.steps++;
-  const c = $('#agStepCnt'); if (c) c.textContent = st.steps + ' steps';
+function agPretty(s) { try { return decodeURIComponent(String(s)); } catch { return String(s); } }
+
+function agRenderCnt() {
+  const st = agProgressState, c = $('#agStepCnt'); if (!st || !c) return;
+  c.innerHTML = `${st.steps} steps`
+    + (st.http ? `<span class="sep">·</span><b>⇄ ${st.http}</b> req` : '')
+    + (st.find ? `<span class="sep">·</span><b>✎ ${st.find}</b> confirmed` : '');
 }
+
+function agAddStep(name, t) {
+  const st = agProgressState; if (!st) return;
+  // Unified timeline: the step row lives inside its own "tool" line in the stream,
+  // right under the think that caused it — no separate Activity panel.
+  const ln = agStream('tool', name, t); if (!ln) return;
+  ln.classList.add('step');
+  const start = t ? t * 1000 : Date.now();
+  ln.querySelector('.tx').innerHTML = `<div class="ag-step run"><div class="ico"></div><div class="nm"><span class="lbl">${esc(name)}</span></div><div class="tmr" data-start="${start}">0.0s</div></div>`;
+  (st.stepEls[name] || (st.stepEls[name] = [])).push(ln.querySelector('.ag-step')); st.steps++;
+  agRenderCnt();
+}
+
 function agFinishStep(name, meta) {
   const st = agProgressState; if (!st) return;
-  const row = st.stepEls[name]; if (!row) return;
-  row.classList.remove('run'); row.classList.add('done');
-  row.querySelector('.ico').textContent = '✓';
+  const arr = st.stepEls[name]; const row = arr && arr.length ? arr.shift() : null; if (!row) return;
+  const box = $('#agStream'); const stick = !!box && (box.scrollHeight - box.scrollTop - box.clientHeight < 48);
+  let n = null, sample = [], status = 'success';
+  if (meta && typeof meta === 'object') {
+    n = (typeof meta.found === 'number') ? meta.found : null;
+    sample = Array.isArray(meta.sample) ? meta.sample : [];
+    status = meta.status || 'success';
+  } else {
+    const m = String(meta || '').match(/^(\d+) found(?: \((.*)\))? \((\w+)\)$/s);
+    if (m) { n = +m[1]; sample = m[2] ? m[2].split(', ') : []; status = m[3]; }
+  }
+  const bad = status && status !== 'success';
+  row.classList.remove('run'); row.classList.add(bad ? 'err' : 'done');
+  row.querySelector('.ico').textContent = bad ? '✕' : '✓';
   const tmr = row.querySelector('.tmr'), s = +tmr.dataset.start || Date.now();
   tmr.textContent = ((Date.now() - s) / 1000).toFixed(1) + 's';
-  if (meta) { const sm = document.createElement('small'); sm.textContent = ' · ' + meta; row.querySelector('.nm').appendChild(sm); }
-}
-function agBump(kind) {
-  const st = agProgressState, box = $('#agSteps'); if (!st || !box) return;
-  const id = kind === 'http' ? 'agGrpHttp' : 'agGrpFind';
-  st[kind === 'http' ? 'http' : 'find']++;
-  let row = document.getElementById(id);
-  if (!row) {
-    row = document.createElement('div'); row.className = 'ag-grprow'; row.id = id;
-    row.innerHTML = kind === 'http'
-      ? `<div class="ico">⇄</div><div class="nm"><b>http_request ×<span>0</span></b> <small style="color:var(--text-muted)">· agent chaining</small></div>`
-      : `<div class="ico">✎</div><div class="nm"><b>record_finding ×<span>0</span></b> <small style="color:var(--text-muted)">· confirmed</small></div>`;
-    box.appendChild(row);
+  const isConfirm = /^confirm_|_confirm$|^vuln_/.test(name); // agentic friendly name OR classic module name
+  const sm = document.createElement('small');
+  sm.textContent = (n == null) ? (typeof meta === 'string' ? meta : '')
+    : (bad ? status : (isConfirm ? `${n} ${n === 1 ? 'hit' : 'hits'}` : `${n} found`));
+  if (n > 0 && !bad) sm.className = isConfirm ? 'lead' : 'has';
+  row.querySelector('.nm').appendChild(sm);
+  if (sample && sample.length) {
+    const origin = (() => { try { return new URL(st.target && st.target.includes('://') ? st.target : 'http://' + st.target).origin; } catch { return ''; } })();
+    const clean = sample.map(u => agPretty(origin && String(u).startsWith(origin) ? (String(u).slice(origin.length) || '/') : u));
+    const smp = document.createElement('div'); smp.className = 'smp';
+    smp.textContent = clean.map(u => u.length > 120 ? u.slice(0, 96) + '…' + u.slice(-20) : u).join('  ·  ');
+    smp.title = clean.join('\n');
+    row.appendChild(smp);
   }
-  row.querySelector('b span').textContent = (kind === 'http' ? st.http : st.find);
+  if (isConfirm && n > 0 && !bad) { st.leadHits[name.replace(/^confirm_/, '')] = n; agRenderTick(); }
+  if (stick && box) box.scrollTop = box.scrollHeight;
 }
-function agStream(type, text) {
-  const box = $('#agStream'); if (!box) return;
-  const tag = { think: 'think', tool: 'tool', req: 'req', hit: 'FOUND', sys: '·' }[type] || type;
-  const ln = document.createElement('div'); ln.className = 'ag-ln ' + type;
-  const now = new Date().toLocaleTimeString('en', { hour12: false });
-  ln.innerHTML = `<span class="ag-t">${now}</span><span class="tg">${tag}</span><span class="tx">${esc(text)}</span>`;
-  box.appendChild(ln); box.scrollTop = box.scrollHeight;
+
+function agBump(kind) {
+  const st = agProgressState; if (!st) return;
+  st[kind === 'http' ? 'http' : 'find']++;
+  agRenderCnt();
 }
+
+function agStream(type, text, t) {
+  const box = $('#agStream'), st = agProgressState; if (!box) return null;
+  const empty = box.querySelector('.ag-empty'); if (empty) empty.remove();
+  const base = String(type).split(' ')[0];
+  const TAG = { think: '◇ think', tool: '▸ tool', req: '→ req', hit: '● FOUND', sum: '✓ done', end: '■', sys: '·' };
+  const ms = t ? t * 1000 : Date.now();
+  const e = Math.max(0, Math.floor((ms - (st ? st.t0 : ms)) / 1000));
+  const stamp = String(Math.floor(e / 60)).padStart(2, '0') + ':' + String(e % 60).padStart(2, '0');
+  const same = box.dataset.last === stamp; box.dataset.last = stamp;
+  if (base === 'think') box.dataset.turn = '1';
+  else if (base === 'sum' || base === 'end' || base === 'sys') box.dataset.turn = '';
+  const sub = box.dataset.turn === '1' && (base === 'tool' || base === 'req' || base === 'hit');
+  const ln = document.createElement('div'); ln.className = 'ag-ln ' + type + (sub ? ' sub' : '');
+  let body = esc(text);
+  if (base === 'req') { const m = String(text).match(/^(\S+)\s+(.*)$/); if (m) { ln.title = text; body = `<b class="m">${esc(m[1])}</b> ${esc(agPretty(m[2]))}`; } }
+  const stick = box.scrollHeight - box.scrollTop - box.clientHeight < 48;
+  ln.innerHTML = `<span class="ag-t">${same ? '' : stamp}</span><span class="tg">${TAG[base] || esc(type)}</span><span class="tx">${body}</span>`;
+  box.appendChild(ln); if (stick) box.scrollTop = box.scrollHeight;
+  return ln;
+}
+
+function agRenderTick() {
+  const st = agProgressState, tick = $('#agFtick'); if (!st || !tick) return;
+  const confirmed = [['critical', 'crit'], ['high', 'high'], ['medium', 'med'], ['low', 'low']]
+    .filter(([k]) => st.sev[k] > 0)
+    .map(([k, c]) => `<span class="ag-sev ${c}"><span class="n">${st.sev[k]}</span> ${k}</span>`).join('');
+  const leads = Object.entries(st.leadHits || {}).filter(([, n]) => n > 0)
+    .map(([k, n]) => `<span class="ag-sev med lead"><span class="n">${n}</span> ${esc(k)} hits</span>`).join('');
+  tick.innerHTML = confirmed + leads;
+}
+
 function agFinding(sev, name) {
   const st = agProgressState; if (!st) return;
   const s = String(sev || 'info').toLowerCase();
   if (st.sev[s] !== undefined) st.sev[s]++;
-  const tick = $('#agFtick'); if (!tick) return;
-  tick.innerHTML = [['critical', 'crit'], ['high', 'high'], ['medium', 'med'], ['low', 'low']]
-    .filter(([k]) => st.sev[k] > 0)
-    .map(([k, c]) => `<span class="ag-sev ${c}"><span class="n">${st.sev[k]}</span> ${k}</span>`).join('');
+  agRenderTick();
 }
 
 function startAgenticSSE(scanId, st) {
@@ -1722,29 +1735,32 @@ function startAgenticSSE(scanId, st) {
     let ev; try { ev = JSON.parse(e.data); } catch { return; }
     const d = ev.data || '';
     switch (ev.type) {
-      case 'agent_start': agStream('sys', d); break;
-      case 'tool_call': agSetPhase(agPhaseIndex(d)); agAddStep(d); agStream('tool', d); break;
-      case 'tool_result': { const m = String(d).match(/^(\S+):\s*(.+)$/); agFinishStep(m ? m[1] : d, m ? m[2] : ''); break; }
-      case 'agent_request': agSetPhase(3); agBump('http'); agStream('req', d); break;
-      case 'agent_finding': { const m = String(d).match(/^(\w+)\s*[—–-]\s*(.+)$/); const sev = m ? m[1] : 'info', nm = m ? m[2] : d; agSetPhase(3); agFinding(sev, nm); agBump('find'); agStream('hit', d); break; }
-      case 'agent_thought': agStream('think', d); break;
-      case 'agent_read': agStream('sys', 'read ' + d); break;
+      case 'agent_start': agStream('sys', d, ev.time); break;
+      case 'tool_call': agSetPhase(agPhaseIndex(d)); agAddStep(d, ev.time); break;
+      case 'tool_result': { try { const r = JSON.parse(d); agFinishStep(r.tool, r); } catch { const m = String(d).match(/^(\S+):\s*(.+)$/); agFinishStep(m ? m[1] : d, m ? m[2] : ''); } break; }
+      case 'agent_request': agSetPhase(3); agBump('http'); agStream('req', d, ev.time); break;
+      case 'agent_finding': { const m = String(d).match(/^(\w+)\s*[—–-]\s*(.+)$/); const sev = m ? m[1] : 'info', nm = m ? m[2] : d; agSetPhase(3); agFinding(sev, nm); agBump('find'); agStream('hit', d, ev.time); break; }
+      case 'agent_thought': agStream('think', d, ev.time); break;
+      case 'agent_read': agStream('sys', 'read ' + d, ev.time); break;
+      case 'agent_usage': { const tk = +d || 0; const te = $('#agTokens'); if (te) te.textContent = (tk / 1000).toFixed(1) + 'k'; const ce = $('#agCost'); if (ce) ce.textContent = '$' + (tk / 1e6 * 0.4).toFixed(3); break; }
       case 'agent_summary': { const tm = String(d).match(/([\d,]+)\s*tokens/); if (tm) { const tk = +tm[1].replace(/,/g, ''); const te = $('#agTokens'); if (te) te.textContent = (tk / 1000).toFixed(1) + 'k'; const ce = $('#agCost'); if (ce) ce.textContent = '$' + (tk / 1e6 * 0.4).toFixed(3); } break; }
-      case 'agent_done': agStream('sys', d); break;
-      case 'agent_stop': agStream('sys', d); break;
-      case 'agent_error': case 'error': st.lastError = d; agStream('hit', 'error: ' + d); break;
-      case 'scan_done': agStream('sys', 'scan ' + d); break;
+      case 'agent_done': agStream('sum', d, ev.time); break;
+      case 'agent_stop': agStream('sys', d, ev.time); break;
+      case 'agent_error': case 'error': st.lastError = d; agStream('hit', 'error: ' + d, ev.time); break;
+      case 'scan_done': agStream(d === 'completed' ? 'end' : 'end bad', 'scan ' + d, ev.time); break;
       case 'end': {
         if (agTimer) { clearInterval(agTimer); agTimer = null; }
-        setStatus('Ready', '');
+        setStatus(ev.status === 'stopped' ? 'Stopped' : 'Ready', '');
         if (eventSource) { eventSource.close(); eventSource = null; }
+        const sb = $('#agStop'); if (sb) sb.remove();
         // A failed run gets the dedicated error screen, not the "complete" map.
         if (ev.status === 'error') {
           app.innerHTML = agErrorCard({ target: st.target, error: st.lastError || 'The scan ended with an error.' }, scanId);
           break;
         }
-        st.done = true; agSetPhase(4);
-        const pill = $('#agPhasePill'); if (pill) { pill.classList.remove('live'); pill.innerHTML = '✓ complete'; }
+        if (ev.status === 'stopped') { st.stopped = true; agSetPhase(st.reached); } // halt at the reached phase — don't fill the whole map
+        else { st.done = true; agSetPhase(4); }
+        const pill = $('#agPhasePill'); if (pill) { pill.classList.remove('live'); pill.innerHTML = ev.status === 'stopped' ? '■ stopped' : '✓ complete'; }
         const sub = $('.ag-sub');
         if (sub && !$('#agViewReport')) {
           const b = document.createElement('a'); b.id = 'agViewReport'; b.href = `#/results/${scanId}`;
@@ -1782,7 +1798,10 @@ async function renderAgenticResults(scanId, scan) {
   conf.sort((a, b) => (ord[(a.severity || 'info').toLowerCase()] ?? 9) - (ord[(b.severity || 'info').toLowerCase()] ?? 9));
   const sevCount = {}; conf.forEach(f => { const s = (f.severity || 'info').toLowerCase(); sevCount[s] = (sevCount[s] || 0) + 1; });
   // Leads = unconfirmed findings, counted via the same merge the Leads tab renders.
-  const leads = resMergeFindings(findings, confirmed).filter(f => f._kind === 'potential').length;
+  const leadList = resMergeFindings(findings, confirmed).filter(f => f._kind === 'potential');
+  const leads = leadList.length;
+  const leadSev = {}; leadList.forEach(f => { const s = (f.severity || 'info').toLowerCase(); leadSev[s] = (leadSev[s] || 0) + 1; });
+  const leadPills = ['critical', 'high', 'medium', 'low', 'info'].filter(s => leadSev[s]).map(s => `<span class="ag-sev ${agSevClass(s)} lead" data-goleads><span class="n">${leadSev[s]}</span> ${s}</span>`).join('');
   const classes = [...new Set(conf.map(f => f.vuln_class || f.name).filter(Boolean))].slice(0, 8);
   const sevPills = ['critical', 'high', 'medium', 'low'].filter(s => sevCount[s]).map(s => `<span class="ag-sev ${agSevClass(s)}"><span class="n">${sevCount[s]}</span> ${s}</span>`).join('');
 
@@ -1791,7 +1810,7 @@ async function renderAgenticResults(scanId, scan) {
       <div>
         <div class="ag-title">${esc(scan.target)}</div>
         <div class="ag-sub">
-          <span class="ag-pill agent">◇ AGENTIC</span>
+          <span class="ag-pill ${scan.mode === 'ai' ? 'agent' : ''}">${scan.mode === 'ai' ? '◇ AGENTIC' : '▤ CLASSIC'}</span>
           <span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span>
           <span class="ag-pill ${scan.status === 'completed' ? 'done' : scan.status === 'error' ? 'err' : 'live'}">${scan.status === 'completed' ? '✓' : scan.status === 'error' ? '✕' : '◴'} ${esc(scan.status)}</span>
         </div>
@@ -1803,20 +1822,25 @@ async function renderAgenticResults(scanId, scan) {
       </div>
     </div>
     <div class="ag-hero">
-      <div class="ag-verdict ${conf.length ? '' : 'clean'}">
-        <div class="big ${conf.length ? '' : 'clean'}">${conf.length} confirmed</div>
-        <div class="cap">${conf.length ? 'vulnerabilities proven with evidence' : 'no vulnerabilities confirmed in this run'}${leads ? ` · ${leads} more leads need manual review` : ''}</div>
-        <div class="sevrow">${sevPills || '<span class="ag-sev info"><span class="n">0</span> findings</span>'}</div>
+      <div class="ag-verdict ${conf.length ? '' : leads ? 'leads' : 'clean'}">
+        <div class="bigrow">
+          <div class="big ${conf.length ? '' : 'clean'}">${conf.length} confirmed</div>
+          ${leads ? `<div class="big lead">+ ${leads} unconfirmed</div>` : ''}
+        </div>
+        <div class="cap">${conf.length ? 'proven with evidence' : leads ? 'nothing proven yet — the hits below were detected but not reproduced' : 'no vulnerabilities confirmed in this run'}</div>
+        ${sevPills ? `<div class="sevlbl">Confirmed</div><div class="sevrow">${sevPills}</div>` : ''}
+        ${leadPills ? `<div class="sevlbl">Leads to verify</div><div class="sevrow">${leadPills}</div>` : ''}
+        ${!sevPills && !leadPills ? '<div class="sevrow"><span class="ag-sev info"><span class="n">0</span> findings</span></div>' : ''}
       </div>
       <div class="ag-statgrid">
         <div class="ag-stat"><div class="k">Surface</div><div class="v ac">${nlines(urls)}<small> urls</small></div></div>
         <div class="ag-stat"><div class="k">Params</div><div class="v">${nlines(params)}</div></div>
         <div class="ag-stat"><div class="k">Subdomains</div><div class="v">${nlines(subs)}</div></div>
-        <div class="ag-stat"><div class="k">Leads</div><div class="v">${leads}</div></div>
+        <div class="ag-stat ${leads ? 'lead' : ''}"${leads ? ' data-goleads' : ''}><div class="k">Leads</div><div class="v">${leads}${leads ? '<small> to verify</small>' : ''}</div></div>
       </div>
     </div>
     <div id="agAiOut"></div>
-    ${classes.length ? `<div class="ag-replay"><h3>WHAT THE AGENT DID</h3><div class="ag-chain">
+    ${classes.length ? `<div class="ag-replay"><h3>${scan.mode === 'ai' ? 'WHAT THE AGENT DID' : 'WHAT RAN'}</h3><div class="ag-chain">
       <span class="c">recon</span><span class="arw">→</span>
       <span class="c">${nlines(urls)} urls / ${nlines(params)} params</span><span class="arw">→</span>
       ${nlines(jsend) ? `<span class="c">${nlines(jsend)} js endpoints</span><span class="arw">→</span>` : ''}
@@ -1825,7 +1849,7 @@ async function renderAgenticResults(scanId, scan) {
     </div></div>` : ''}
     <div class="ag-sec">Confirmed vulnerabilities <span class="ct">· ${conf.length} · sorted by severity</span></div>
     <div id="agCards"></div>
-    <details class="ag-fold"${conf.length ? '' : ' open'}>
+    <details class="ag-fold"${conf.length && !leads ? '' : ' open'}>
       <summary><span>Recon data &amp; leads</span><span class="mono" style="color:var(--text-muted)">▾</span></summary>
       <div class="res-subtabs" id="agReconTabs">
         <button data-rv="hosts" class="on">Hosts <b>${nlines(subs)}</b></button>
@@ -1854,7 +1878,8 @@ async function renderAgenticResults(scanId, scan) {
     else if (k === 'leads') resFindingsView(scanId, reconView, { only: 'potential', emptyMsg: 'No unconfirmed leads.' });
   };
   $$('#agReconTabs button').forEach(b => b.addEventListener('click', () => loadRecon(b.dataset.rv)));
-  loadRecon('hosts');
+  loadRecon(leads && !conf.length ? 'leads' : 'hosts');
+  $$('[data-goleads]').forEach(el => el.addEventListener('click', () => { const d = $('.ag-fold'); if (d) { d.open = true; loadRecon('leads'); d.scrollIntoView({ behavior: 'smooth' }); } }));
   const aiBtn = $('#agAiBtn'); if (aiBtn) aiBtn.addEventListener('click', () => agAiReport(scanId, aiBtn));
 }
 
@@ -1903,6 +1928,12 @@ async function agLoadRaw(scanId, file) {
 
 async function agAiReport(scanId, btn) {
   const out = $('#agAiOut'); if (!out) return;
+  // No provider key → guide to Settings instead of firing a request that only fails.
+  let cfg; try { cfg = await api('/ai/settings'); } catch { cfg = null; }
+  if (!cfg || !cfg.enabled || !cfg.hasKey) {
+    out.innerHTML = `<div class="ag-empty" style="padding:var(--space-4)">AI is ${cfg && cfg.enabled ? 'missing an API key' : 'turned off'} — <a href="#/settings" style="color:var(--accent-primary)">open AI Settings</a> to generate the report.</div>`;
+    return;
+  }
   btn.disabled = true; const label = btn.textContent; btn.textContent = 'Asking the model…';
   out.innerHTML = `<div class="ag-empty" style="padding:var(--space-4)">generating AI report…</div>`;
   let res; try { res = await api(`/scan/${scanId}/ai/report`, { method: 'POST' }); } catch { res = { ok: false, error: 'request failed' }; }

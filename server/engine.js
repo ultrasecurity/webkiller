@@ -52,6 +52,7 @@ class ScanEngine {
   constructor() {
     this.scans = new Map();
     this.events = new Map();
+    this.control = new Map(); // scanId -> AbortController, for user-initiated stop
   }
 
   startScan(target, profileName = 'quick', outOfScope = null, configOverrides = null, mode = 'classic') {
@@ -63,6 +64,10 @@ class ScanEngine {
     if (port) merged.targetPort = port;
     const config = getConfig(merged);
     const workspace = new Workspace(host);
+    // Seed the target host itself so a leaf/subdomain target (or an empty passive
+    // enumeration) never produces an empty chain: probe/collect/test still proceed,
+    // and read_artifact('subdomains') shows >=1 instead of looking broken.
+    try { workspace.appendLines('subdomains.txt', [port ? `${host}:${port}` : host]); } catch { /* best-effort seed */ }
     const oos = outOfScope || moduleSettings.globals().out_of_scope || null;
     const scope = new Scope([`*.${host}`, host], oos);
     const store = new AssetStore(workspace.root);
@@ -82,10 +87,12 @@ class ScanEngine {
       workspace_path: workspace.root,
     });
     this.events.set(scanId, []);
+    const controller = new AbortController();
+    this.control.set(scanId, controller);
 
     const runner = mode === 'ai'
-      ? this._runAgenticScan(scanId, workspace, scope, store, config, profileName)
-      : this._runScan(scanId, profile, workspace, scope, store, config);
+      ? this._runAgenticScan(scanId, workspace, scope, store, config, profileName, controller.signal)
+      : this._runScan(scanId, profile, workspace, scope, store, config, controller.signal);
     runner.catch((err) => {
       const scan = this.scans.get(scanId);
       if (scan) {
@@ -98,7 +105,7 @@ class ScanEngine {
     return scanId;
   }
 
-  async _runAgenticScan(scanId, workspace, scope, store, config, profileName) {
+  async _runAgenticScan(scanId, workspace, scope, store, config, profileName, signal) {
     const scan = this.scans.get(scanId);
     const aiSettings = require('./ai/settings');
     const s = aiSettings.load();
@@ -109,6 +116,7 @@ class ScanEngine {
     const exclude = Object.entries(TOOL_MODULES)
       .filter(([, moduleKey]) => !moduleSettings.isEnabled(moduleKey))
       .map(([friendly]) => friendly);
+    const agentRan = new Set();
     const res = await runAgenticScan({
       target: workspace.target,
       scope,
@@ -116,13 +124,40 @@ class ScanEngine {
       config,
       allowIntrusive,
       exclude,
+      signal,
       model: s.agentModel || s.model,
+      maxToolCalls: s.maxToolCalls,
       provider: aiSettings.getProvider(),
       emit: (type, data) => this._addEvent(scanId, type, typeof data === 'string' ? data : JSON.stringify(data || {})),
-      runTool: (moduleName) => this._runModule(scanId, moduleName, workspace, scope, store, config),
+      runTool: (moduleName) => { agentRan.add(moduleName); return this._runModule(scanId, moduleName, workspace, scope, store, config); },
     });
+    // Coverage guarantee: a cheap agent model often finishes before running every
+    // finding module, so after it stops we deterministically run any it skipped over
+    // the surface it discovered — an active agentic scan is then at least as thorough
+    // as a classic aggressive one, with the agent's reasoning/chaining on top.
+    if (allowIntrusive && scan.status === 'running' && !(signal && signal.aborted)) {
+      const { CONFIRM_MODULES } = require('./ai/agent');
+      const emit = (type, data) => this._addEvent(scanId, type, typeof data === 'string' ? data : JSON.stringify(data || {}));
+      const todo = CONFIRM_MODULES.filter(m => !agentRan.has(m) && MODULE_MAP[m] && moduleSettings.isEnabled(m));
+      if (todo.length) {
+        emit('agent_thought', `Sweeping ${todo.length} remaining checks to guarantee full coverage.`);
+        for (const m of todo) {
+          if (signal && signal.aborted) break;
+          emit('tool_call', m);
+          let result;
+          try { result = await this._runModule(scanId, m, workspace, scope, store, config); }
+          catch (e) { result = { items: [], status: 'error' }; }
+          const items = (result && result.items) || [];
+          emit('tool_result', JSON.stringify({ tool: m, found: items.length, sample: items.slice(0, 2).map(x => typeof x === 'string' ? x : (x && (x.url || x.name)) || ''), status: (result && result.status) || 'error' }));
+        }
+      }
+    }
     scan.finished_at = Date.now() / 1000;
     scan.current_module = null;
+    const fc = this._countFindings(workspace);
+    scan.findings = fc.findings; scan.confirmed = fc.confirmed;
+    this._persistFindings(workspace, scan, fc);
+    if (scan.status === 'stopped') return; // user stopped it — keep the stopped status
     // A provider/auth failure before the agent ran any tool is a failed scan,
     // not a completed one — surface it so the UI can guide the user to Settings.
     if (res && res.error && !res.calls) {
@@ -152,7 +187,7 @@ class ScanEngine {
     'secret_verify':  'confirm',     // reads findings.jsonl + urls.txt
   };
 
-  async _runScan(scanId, profile, workspace, scope, store, config) {
+  async _runScan(scanId, profile, workspace, scope, store, config, signal) {
     const modules = profile.modules.filter(m => {
       if (!MODULE_MAP[m]) {
         this._addEvent(scanId, 'warn', `Unknown module: ${m}`);
@@ -171,6 +206,7 @@ class ScanEngine {
     const groups = this._buildGroups(modules);
 
     for (const group of groups) {
+      if (signal && signal.aborted) break;
       if (group.length === 1) {
         await this._runModule(scanId, group[0], workspace, scope, store, config);
       } else {
@@ -182,9 +218,13 @@ class ScanEngine {
     }
 
     const scan = this.scans.get(scanId);
+    const fc = this._countFindings(workspace);
+    scan.findings = fc.findings; scan.confirmed = fc.confirmed;
+    if (scan.status === 'stopped') { this._persistFindings(workspace, scan, fc); return; } // user stopped it between groups
     scan.status = 'completed';
     scan.finished_at = Date.now() / 1000;
     scan.current_module = null;
+    this._persistFindings(workspace, scan, fc);
     this._addEvent(scanId, 'scan_done', 'completed');
   }
 
@@ -237,6 +277,48 @@ class ScanEngine {
     return result;
   }
 
+  // "Findings" must mean vulnerabilities, never surface size. Count the unique
+  // vuln records (confirmed ∪ potential, deduped by class|url|param) — the same
+  // merge the Findings tab renders — so a target with 10k URLs never reads as
+  // "10k findings". Cheap: reads two small jsonl files once at scan end.
+  _countFindings(workspace) {
+    try {
+      const conf = workspace.readJsonl('confirmed.jsonl');
+      const find = workspace.readJsonl('findings.jsonl');
+      const key = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}`;
+      const seen = new Set();
+      for (const f of conf) seen.add(key(f));
+      for (const f of find) seen.add(key(f));
+      return { findings: seen.size, confirmed: conf.length };
+    } catch { return { findings: 0, confirmed: 0 }; }
+  }
+
+  _persistFindings(workspace, scan, fc) {
+    try {
+      Object.assign(workspace.state, {
+        findings: fc.findings, confirmed: fc.confirmed,
+        results: scan.results, status: scan.status,
+        mode: scan.mode, profile: scan.profile,
+        started_at: scan.started_at, finished_at: scan.finished_at,
+      });
+      workspace.saveState();
+    } catch { /* best effort — the live scan record still has the counts */ }
+  }
+
+  stopScan(scanId) {
+    const scan = this.scans.get(scanId);
+    if (!scan || scan.status !== 'running') return false;
+    const ctrl = this.control.get(scanId);
+    if (ctrl) { try { ctrl.abort(); } catch { /* ignore */ } } // aborts the agent loop + the in-flight LLM request
+    try { require('./runner').killActive(); } catch { /* ignore */ } // hard-kill in-flight tool subprocesses
+    scan.status = 'stopped';
+    scan.finished_at = Date.now() / 1000;
+    scan.current_module = null;
+    this._addEvent(scanId, 'agent_stop', 'stopped by user');
+    this._addEvent(scanId, 'scan_done', 'stopped');
+    return true;
+  }
+
   getScan(scanId) {
     return this.scans.get(scanId) || this._restoreFromDisk(scanId);
   }
@@ -264,6 +346,9 @@ class ScanEngine {
           started_at: st.started_at,
           finished_at: st.finished_at,
           results: st.results || {},
+          findings: st.findings || 0,
+          confirmed: st.confirmed || 0,
+          mode: st.mode,
           workspace_path: dir,
           restored: true,
         };

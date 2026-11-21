@@ -128,7 +128,7 @@
 /* sticky save bar */
 .set-savebar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(17,22,24,.96);backdrop-filter:blur(14px);border-top:1px solid var(--border-default);padding:14px 0;transform:translateY(100%);transition:transform .2s}
 .set-savebar.show{transform:none}
-.set-savebar .inner{max-width:1040px;margin:0 auto;padding:0 var(--space-5);display:flex;align-items:center;gap:var(--space-4)}
+.set-savebar .inner{max-width:var(--page-max);margin:0 auto;padding:0 var(--space-5);display:flex;align-items:center;gap:var(--space-4)}
 .set-savebar .msg{flex:1;font-size:13px;color:var(--text-readable);display:flex;align-items:center;gap:9px}
 .set-savebar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent-amber);box-shadow:0 0 8px var(--accent-amber)}
 
@@ -156,7 +156,7 @@
 
 /* Dependencies tab — v2 (groups, 1-line rows, ⋯ menu, progress, consent sheet) */
 .dep-note.warn{color:var(--accent-amber);background:var(--accent-amber-muted);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-md);padding:8px 12px}
-.dep-rt{color:var(--accent-amber)}
+.dep-rt{color:var(--text-secondary)}
 .dep-need{color:var(--text-muted);font-style:italic}
 .dep-err{color:var(--accent-red)}
 .dep-bar{height:4px;border-radius:999px;background:var(--border-neutral);margin-top:7px;overflow:hidden;max-width:340px}

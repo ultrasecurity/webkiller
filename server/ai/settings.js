@@ -32,6 +32,7 @@ const DEFAULTS = {
   // The agentic loop is latency-bound, so it defaults to a fast cheap model;
   // the single-shot hooks (report/triage) keep `model`. Blank = use `model`.
   agentModel: 'google/gemini-3.1-flash-lite',
+  maxToolCalls: 50, // how many tools the agentic loop may run — user-tunable
 };
 
 function readRaw() {
@@ -42,7 +43,7 @@ function readRaw() {
 function load() {
   const raw = readRaw();
   const out = { ...DEFAULTS, enabled: !!raw.enabled, apiKey: '', insecureKey: false };
-  for (const k of ['provider', 'baseURL', 'model', 'agentModel']) if (raw[k] !== undefined) out[k] = raw[k];
+  for (const k of ['provider', 'baseURL', 'model', 'agentModel', 'maxToolCalls']) if (raw[k] !== undefined) out[k] = raw[k];
 
   if (raw.apiKeyEnc) {
     const ss = getSafeStorage();
@@ -68,6 +69,7 @@ function save(input = {}) {
     baseURL: input.baseURL !== undefined ? input.baseURL : cur.baseURL,
     model: input.model !== undefined ? input.model : cur.model,
     agentModel: input.agentModel !== undefined ? input.agentModel : cur.agentModel,
+    maxToolCalls: input.maxToolCalls !== undefined ? Math.max(1, Math.min(200, parseInt(input.maxToolCalls, 10) || 50)) : cur.maxToolCalls,
   };
 
   const key = input.apiKey !== undefined ? input.apiKey : cur.apiKey;
@@ -99,6 +101,7 @@ function loadPublic() {
     hasKey: !!s.apiKey,
     keyMasked: maskKey(s.apiKey),
     insecureKey: s.insecureKey,
+    maxToolCalls: s.maxToolCalls,
   };
 }
 

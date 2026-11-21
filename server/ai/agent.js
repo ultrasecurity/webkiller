@@ -9,10 +9,9 @@
 // sample. Iteration and token budgets cap the loop so a cheap model cannot run
 // up an unbounded bill.
 
-const MAX_TOOL_CALLS = 22;        // recon + per-class confirm steps the agent may execute
-const MAX_ITERS = MAX_TOOL_CALLS + 8;
-const MAX_TOKENS_BUDGET = 150000; // across the whole agentic scan
-const MAX_HTTP_REQUESTS = 40;     // fine-grained requests the agent may send
+const DEFAULT_MAX_TOOL_CALLS = 50; // tunable in Settings; the agent runs "wide" by default
+const MAX_TOKENS_BUDGET = 600000;  // across the whole agentic scan (generous — a cheap agent model)
+const MAX_HTTP_REQUESTS = 150;     // fine-grained requests the agent may send
 
 // Friendly tool name -> engine module name.
 const TOOL_MODULES = {
@@ -38,6 +37,10 @@ const TOOL_MODULES = {
   confirm_openredirect: 'openredirect_confirm',
   confirm_protopp:      'protopollution_confirm',
   confirm_graphql:      'graphql_confirm',
+  confirm_access:       'authz_probe',
+  confirm_secrets:      'secret_verify',
+  confirm_bypass403:    'bypass_403',
+  deep_scan:            'vuln_confirm',
 };
 
 const TOOL_DESC = {
@@ -63,6 +66,10 @@ const TOOL_DESC = {
   confirm_openredirect: 'Test redirect-like parameters for open redirect to an attacker host (intrusive).',
   confirm_protopp:      'POST __proto__ payloads to test for prototype pollution (intrusive).',
   confirm_graphql:      'Run a GraphQL introspection query to detect an exposed schema (intrusive).',
+  confirm_access:       'Test API endpoints for broken access control, IDOR and HTTP method tampering (intrusive).',
+  confirm_secrets:      'Verify secrets found in JS/responses (API keys, tokens) and report the live ones (intrusive).',
+  confirm_bypass403:    'Try path and header tricks to reach 403-forbidden endpoints (intrusive).',
+  deep_scan:            'Run deeper DAST vulnerability checks over the collected URLs (intrusive).',
 };
 
 const ARTIFACTS = {
@@ -78,21 +85,29 @@ const ARTIFACTS = {
 const INTRUSIVE = new Set([
   'confirm_xss', 'confirm_sqli', 'confirm_ssti', 'confirm_lfi', 'confirm_ssrf', 'confirm_xxe', 'confirm_deser', 'confirm_jwt',
   'confirm_massassign', 'confirm_nosqli', 'confirm_cors', 'confirm_openredirect', 'confirm_protopp', 'confirm_graphql',
+  'confirm_access', 'confirm_secrets', 'confirm_bypass403', 'deep_scan',
 ]);
+
+// Finding-producing engine modules, for the post-agent coverage sweep (engine.js).
+const CONFIRM_MODULES = ['vuln_signal', 'vuln_confirm', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'authz_probe', 'bypass_403', 'secret_verify'];
 
 function buildTools({ allowIntrusive = false, exclude = [] } = {}) {
   const ex = new Set(exclude); // prod-safe: drop loud/active modules (ffuf brute, full nuclei) by friendly name
   const names = Object.keys(TOOL_MODULES).filter(n => (allowIntrusive || !INTRUSIVE.has(n)) && !ex.has(n));
+  // Every tool takes a REQUIRED one-line `reason`. Cheap tool-calling models fill a
+  // required argument reliably (unlike the assistant `content`, which is usually empty
+  // on a tool call), so this is what makes the live reasoning stream actually populate.
+  const REASON = { type: 'string', description: 'One short sentence (max ~15 words): what you are about to do and why. Streamed live to the operator.' };
   const tools = names.map(name => ({
     type: 'function',
-    function: { name, description: TOOL_DESC[name], parameters: { type: 'object', properties: {}, additionalProperties: false } },
+    function: { name, description: TOOL_DESC[name], parameters: { type: 'object', properties: { reason: REASON }, required: ['reason'], additionalProperties: false } },
   }));
   tools.push({
     type: 'function',
     function: {
       name: 'read_artifact',
       description: 'Inspect what has been gathered so far (returns counts + a small sample, not the full list).',
-      parameters: { type: 'object', properties: { artifact: { type: 'string', enum: Object.keys(ARTIFACTS) } }, required: ['artifact'] },
+      parameters: { type: 'object', properties: { reason: REASON, artifact: { type: 'string', enum: Object.keys(ARTIFACTS) } }, required: ['reason', 'artifact'] },
     },
   });
   tools.push({
@@ -103,12 +118,13 @@ function buildTools({ allowIntrusive = false, exclude = [] } = {}) {
       parameters: {
         type: 'object',
         properties: {
+          reason: REASON,
           method: { type: 'string', enum: ['GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'DELETE', 'PATCH'] },
           url: { type: 'string', description: 'Absolute URL on an in-scope host' },
           headers: { type: 'object', description: 'Optional request headers' },
           body: { type: 'string', description: 'Optional request body' },
         },
-        required: ['url'],
+        required: ['reason', 'url'],
       },
     },
   });
@@ -120,12 +136,13 @@ function buildTools({ allowIntrusive = false, exclude = [] } = {}) {
       parameters: {
         type: 'object',
         properties: {
+          reason: REASON,
           title: { type: 'string' },
           severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low', 'info'] },
           url: { type: 'string' },
           detail: { type: 'string', description: 'The evidence: what you sent and what proved it' },
         },
-        required: ['title', 'severity', 'url'],
+        required: ['reason', 'title', 'severity', 'url'],
       },
     },
   });
@@ -134,7 +151,7 @@ function buildTools({ allowIntrusive = false, exclude = [] } = {}) {
     function: {
       name: 'finish',
       description: 'End the scan once enough reconnaissance is done. Provide a short summary of what was found.',
-      parameters: { type: 'object', properties: { summary: { type: 'string' } }, required: ['summary'] },
+      parameters: { type: 'object', properties: { reason: REASON, summary: { type: 'string' } }, required: ['reason', 'summary'] },
     },
   });
   return tools;
@@ -146,14 +163,16 @@ function systemPrompt(target, allowIntrusive) {
     `The ONLY target in scope is "${target}" and its subdomains (*.${target}). The tools enforce this — you cannot act outside scope.`,
     'Your goal is NOT just reconnaissance: it is to find and CONFIRM real vulnerabilities with concrete evidence. Work one tool at a time, in two phases.',
     'PHASE 1 — MAP the surface: enumerate subdomains, probe live hosts, collect URLs, crawl content, analyze JS, and find parameters. Then call read_artifact on "urls", "js_endpoints" and "params" to see exactly what endpoints and parameters exist.',
+    'If the target is a single host or subdomain, passive subdomain enumeration may return nothing — that is expected, not a failure. The target host itself is always probed, so just call probe_live_hosts next and keep going. Never call finish only because enumeration was empty.',
     'PHASE 2 — TEST the surface: for every URL that carries a parameter, actively test it. Use http_request to send a tailored payload to a specific parameter and read the response, follow a redirect, bump an id to reach another record, or chain two findings into a real exploit — this is how you go deeper than a fixed pipeline.',
     'A response proves a vulnerability when a payload is reflected unencoded in HTML (XSS), a time-based payload delays the response (SQLi), bumping an id returns another user\'s data (IDOR), or a protected path becomes reachable (access-control bypass). When you have such evidence, call record_finding with exactly what you sent and what proved it.',
   ];
   if (allowIntrusive) {
-    lines.push('You also have a suite of active confirm tools, one per vulnerability class — confirm_xss, confirm_sqli, confirm_ssti, confirm_lfi, confirm_ssrf, confirm_xxe, confirm_deser, confirm_jwt, confirm_massassign, confirm_nosqli, confirm_cors, confirm_openredirect, confirm_protopp, confirm_graphql — that batch-test the discovered surface. Once you have parameters and endpoints, run the ones that fit what you found, then verify or extend any hit with http_request.');
+    lines.push('You also have a suite of active confirm tools, one per vulnerability class — confirm_xss, confirm_sqli, confirm_ssti, confirm_lfi, confirm_ssrf, confirm_xxe, confirm_deser, confirm_jwt, confirm_massassign, confirm_nosqli, confirm_cors, confirm_openredirect, confirm_protopp, confirm_graphql, confirm_access, confirm_secrets, confirm_bypass403 — that batch-test the discovered surface. Once you have parameters and endpoints, run EVERY one that could apply to what you found — breadth is the goal, do not test just a few classes — then verify or extend each hit with http_request.');
   }
-  lines.push('With EVERY tool call, first write ONE short sentence of reasoning — what you are about to do and why (e.g. "The /item endpoint takes an id, so I will test it for SQL injection."). This running commentary is streamed live to the operator, so keep it present and specific; never emit a tool call with empty reasoning.');
-  lines.push('Do not stop after only enumerating — a scan that lists parameters but never tests them is incomplete. Keep testing the discovered parameters until the surface is covered, then call finish with a concise summary of what you CONFIRMED (and what you ruled out). Never narrate without also calling a tool.');
+  lines.push('With EVERY tool call, put ONE short sentence of reasoning in the REQUIRED "reason" argument — what you are about to do and why (e.g. "The /item endpoint takes an id, so I will test it for SQL injection."). This is streamed live to the operator, so keep it present and specific. Put it in the reason argument, not in the message body.');
+  lines.push('Do not stop after only enumerating — a scan that lists parameters but never tests them is incomplete. Never narrate without also calling a tool.');
+  lines.push('Operate exhaustively and aggressively: MAXIMUM COVERAGE is the objective. Keep going until every discovered parameter and endpoint has been run through every confirm tool that could apply, and you have chased the obvious chains — only THEN call finish, with a concise summary of what you CONFIRMED and what you ruled out. You have a generous tool budget; spend it. Finishing with the surface half-tested is a failed scan.');
   return lines.join(' ');
 }
 
@@ -276,7 +295,9 @@ function recordFinding(args, workspace, emit) {
 
 // opts: { target, scope, workspace, config, provider, model, allowIntrusive, emit(type,data), runTool(moduleName)->ModuleResult }
 async function runAgenticScan(opts) {
-  const { target, scope, provider, emit, runTool, workspace, allowIntrusive = false, model, exclude = [] } = opts;
+  const { target, scope, provider, emit, runTool, workspace, allowIntrusive = false, model, exclude = [], signal, maxToolCalls: maxToolCallsOpt } = opts;
+  const MAX_TOOL_CALLS = Math.max(1, Number(maxToolCallsOpt) || DEFAULT_MAX_TOOL_CALLS);
+  const MAX_ITERS = MAX_TOOL_CALLS + 10;
   const tools = buildTools({ allowIntrusive, exclude });
   const httpState = { count: 0 };
   const messages = [
@@ -291,24 +312,27 @@ async function runAgenticScan(opts) {
   emit('agent_start', `AI agent started on ${target}`);
 
   for (let iter = 0; iter < MAX_ITERS; iter++) {
+    if (signal && signal.aborted) { emit('agent_stop', 'stopped by user'); break; }
     if (tokens > MAX_TOKENS_BUDGET) { emit('agent_stop', `token budget reached (~${tokens})`); break; }
 
     let resp;
     try {
-      resp = await provider.chat({ messages, tools, temperature: 0.3, maxTokens: 1024, model });
+      resp = await provider.chat({ messages, tools, temperature: 0.3, maxTokens: 1024, model, signal });
     } catch (e) {
+      if (signal && signal.aborted) { emit('agent_stop', 'stopped by user'); break; }
       fatalError = e.message || String(e);
       emit('agent_error', fatalError);
       break;
     }
     tokens += (resp.usage && resp.usage.total_tokens) || 0;
+    emit('agent_usage', String(tokens)); // stream the running token total so the UI meters update live, not only at the end
 
     const toolCalls = resp.toolCalls || [];
     const assistantMsg = { role: 'assistant', content: resp.content || '' };
     if (toolCalls.length) assistantMsg.tool_calls = toolCalls;
     messages.push(assistantMsg);
 
-    if (resp.content && resp.content.trim()) emit('agent_thought', resp.content.trim().slice(0, 600));
+    if (!toolCalls.length && resp.content && resp.content.trim()) emit('agent_thought', resp.content.trim().slice(0, 600)); // reason now rides each tool's required arg; only narrate bare messages here
 
     if (!toolCalls.length) {
       if (nudged) { emit('agent_done', 'agent ended without an explicit finish'); break; }
@@ -320,9 +344,11 @@ async function runAgenticScan(opts) {
     let finished = false;
     let capReached = false;
     for (const tc of toolCalls) {
+      if (signal && signal.aborted) break;
       const fname = tc.function && tc.function.name;
       let args = {};
       try { args = JSON.parse((tc.function && tc.function.arguments) || '{}'); } catch { /* bad args */ }
+      if (args && args.reason) emit('agent_thought', String(args.reason).slice(0, 200)); // per-call rationale → live think line
 
       let content;
       if (fname === 'finish') {
@@ -349,7 +375,7 @@ async function runAgenticScan(opts) {
           try { result = await runTool(TOOL_MODULES[fname]); }
           catch (e) { result = { status: 'error', items: [], errors: [e.message] }; }
           const summary = summarizeResult(fname, result);
-          emit('tool_result', `${fname}: ${summary.found} found (${summary.status})`);
+          emit('tool_result', JSON.stringify({ tool: fname, found: summary.found, sample: (summary.sample || []).slice(0, 2), status: summary.status }));
           content = JSON.stringify(summary);
         }
       } else {
@@ -359,6 +385,7 @@ async function runAgenticScan(opts) {
     }
 
     if (finished) break;
+    if (signal && signal.aborted) { emit('agent_stop', 'stopped by user'); break; }
     if (capReached) { emit('agent_stop', `max tool calls reached (${MAX_TOOL_CALLS})`); break; }
   }
 
@@ -366,4 +393,4 @@ async function runAgenticScan(opts) {
   return { calls, tokens, error: fatalError };
 }
 
-module.exports = { runAgenticScan, buildTools, TOOL_MODULES };
+module.exports = { runAgenticScan, buildTools, TOOL_MODULES, CONFIRM_MODULES };

@@ -93,7 +93,7 @@ function setupRoutes(app) {
         res.write(`data: ${JSON.stringify(ev)}\n\n`);
       }
       const scan = engine.getScan(scanId);
-      if (scan && (scan.status === 'completed' || scan.status === 'error')) {
+      if (scan && (scan.status === 'completed' || scan.status === 'error' || scan.status === 'stopped')) {
         res.write(`data: ${JSON.stringify({ type: 'end', status: scan.status })}\n\n`);
         clearInterval(interval);
         res.end();
@@ -101,6 +101,11 @@ function setupRoutes(app) {
     }, 500);
 
     req.on('close', () => clearInterval(interval));
+  });
+
+  app.post('/api/scan/:scanId/stop', (req, res) => {
+    const ok = engine.stopScan(req.params.scanId);
+    res.json({ ok: !!ok });
   });
 
   // --- Result Files ---
@@ -349,6 +354,68 @@ function setupRoutes(app) {
 
   // --- Export HTML ---
 
+  // Self-contained stylesheet for the exported report: the app's design tokens +
+  // the ag-* component rules, inlined (no external fonts/CSS) so the file renders
+  // offline and matches the in-app results screen. System fonts only.
+  const REPORT_CSS = `
+:root{--bg:#0A0E0F;--surface:#111618;--raised:#161D1F;--txt:#C8D8DA;--txt2:#5A7A80;--mut:#4A6670;--primary:#00D4AA;--red:#FF4444;--high:#FF6B35;--amber:#FFAA00;--info:#4488FF;--bsub:rgba(0,212,170,.10);--bneu:#1E2A2D;--mono:ui-monospace,Menlo,Consolas,monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,sans-serif;line-height:1.6}
+.rp{max-width:1100px;margin:0 auto;padding:40px 28px}
+.ag-head{margin-bottom:24px}
+.ag-title{font-family:var(--mono);font-size:26px;color:var(--txt)}
+.ag-sub{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ag-pill{font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:4px 10px;border-radius:999px;border:1px solid var(--bneu);color:var(--txt2)}
+.ag-pill.mode{color:var(--high);border-color:rgba(255,107,53,.3)}
+.ag-pill.done{color:var(--primary);border-color:rgba(0,212,170,.3)}
+.ag-hero{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:28px}
+.ag-verdict{background:linear-gradient(160deg,var(--raised),var(--surface));border:1px solid rgba(0,212,170,.18);border-radius:20px;padding:22px}
+.ag-verdict.leads{border-color:rgba(255,170,0,.3)}.ag-verdict.clean{border-color:var(--bneu)}
+.bigrow{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.big{font-family:var(--mono);font-size:34px;line-height:1;color:var(--red)}.big.clean{color:var(--txt2)}.big.lead{color:var(--amber);font-size:22px}
+.cap{color:var(--txt2);font-size:13px;margin-top:6px}
+.sevlbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-top:16px}
+.sevrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ag-sev{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid}
+.ag-sev .n{font-size:14px;font-weight:600}
+.ag-sev.crit{color:var(--red);border-color:rgba(255,68,68,.3);background:rgba(255,68,68,.07)}
+.ag-sev.high{color:var(--high);border-color:rgba(255,107,53,.3);background:rgba(255,107,53,.07)}
+.ag-sev.med{color:var(--amber);border-color:rgba(255,170,0,.3);background:rgba(255,170,0,.07)}
+.ag-sev.low{color:var(--info);border-color:rgba(68,136,255,.3);background:rgba(68,136,255,.07)}
+.ag-sev.info{color:var(--txt2);border-color:var(--bneu)}
+.ag-sev.lead{background:none;border-style:dashed}
+.ag-statgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ag-stat{background:var(--surface);border:1px solid var(--bsub);border-radius:12px;padding:12px 16px}
+.ag-stat .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.ag-stat .v{font-family:var(--mono);font-size:20px;margin-top:4px}.ag-stat .v.ac{color:var(--primary)}.ag-stat .v small{font-size:12px;color:var(--mut)}
+.ag-sec{font-family:var(--mono);font-size:16px;margin:28px 0 12px}.ag-sec .ct{font-size:12px;color:var(--mut)}
+.ag-fcard{background:var(--surface);border:1px solid var(--bsub);border-left:3px solid var(--red);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.ag-fcard.high{border-left-color:var(--high)}.ag-fcard.med{border-left-color:var(--amber)}.ag-fcard.low{border-left-color:var(--info)}.ag-fcard.info{border-left-color:var(--bneu)}.ag-fcard.lead{border-left-style:dashed}
+.ag-fcard>summary{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none}
+.ag-fcard>summary::-webkit-details-marker{display:none}
+.ag-fh .title{flex:1;font-weight:600;font-size:15px}
+.ag-fh .cls{font-family:var(--mono);font-size:11px;color:var(--mut);background:var(--raised);padding:3px 9px;border-radius:999px}
+.ag-fh .chev{color:var(--mut);transition:transform .2s}.ag-fcard[open]>summary .chev{transform:rotate(90deg)}
+.ag-fb{padding:0 16px 16px;border-top:1px solid var(--bsub)}
+.ag-kv{display:flex;gap:10px;padding:8px 0;font-size:13px;border-bottom:1px solid var(--bsub)}
+.ag-kv .k{width:88px;color:var(--mut);flex-shrink:0;font-size:12px}.ag-kv .v{font-family:var(--mono);word-break:break-all}
+.ag-poc{margin-top:12px}.ag-poc .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);margin-bottom:6px}
+.ag-code{background:var(--bg);border:1px solid var(--bneu);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.ag-fold{margin-top:16px;border:1px solid var(--bsub);border-radius:12px;background:var(--surface)}
+.ag-fold>summary{padding:14px 16px;cursor:pointer;color:var(--txt2);font-size:14px;list-style:none;display:flex;justify-content:space-between}
+.ag-fold>summary::-webkit-details-marker{display:none}.ag-fold .ct{font-family:var(--mono);font-size:12px;color:var(--mut)}
+.rp-list{border-top:1px solid var(--bsub);max-height:460px;overflow:auto}
+.rp-row{display:flex;gap:12px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--bsub);font-size:13px}
+.rp-row .u{flex:1;font-family:var(--mono);word-break:break-all}.rp-row .u small{color:var(--mut)}.rp-row .t{color:var(--mut);font-family:var(--mono);font-size:12px;white-space:nowrap}
+.rp-row .sc{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:4px;flex-shrink:0}
+.sc.s2{color:var(--primary)}.sc.s3{color:var(--amber)}.sc.s4{color:var(--high)}.sc.s5{color:var(--red)}.sc.s0{color:var(--mut)}
+.rp-line{padding:5px 16px;border-bottom:1px solid var(--bsub);font-family:var(--mono);font-size:12px;word-break:break-all}
+.rp-empty{padding:16px;color:var(--mut)}
+.rp-foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--bneu);font-size:11px;color:var(--mut);text-align:center}
+@media(max-width:700px){.ag-hero{grid-template-columns:1fr}.rp{padding:20px 14px}.ag-statgrid{grid-template-columns:1fr 1fr}}
+@media print{body{background:#fff;color:#111}.ag-verdict,.ag-stat,.ag-fcard,.ag-fold{background:none}.rp-list{max-height:none}.ag-fcard,.ag-stat{break-inside:avoid}}
+`;
+
   app.get('/api/scan/:scanId/export/html', (req, res) => {
     const scan = engine.getScan(req.params.scanId);
     if (!scan) return res.status(404).json({ error: 'not found' });
@@ -375,97 +442,81 @@ function setupRoutes(app) {
     const finished = scan.finished_at ? new Date(scan.finished_at * 1000).toISOString().replace('T', ' ').slice(0, 19) : '—';
     const duration = scan.finished_at ? `${Math.round(scan.finished_at - scan.started_at)}s` : '—';
 
-    const sevColors = { critical: '#ff4444', high: '#ff8c00', medium: '#ffcc00', low: '#00d4aa', info: '#5a7a80' };
+    const params = readLines('params.txt');
+    const hosts = readJsonl('hosts.jsonl');
+    // Merge findings exactly like the app's results view: confirmed wins, rest are leads.
+    const fkey = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}`;
+    const fmap = new Map();
+    confirmed.forEach(f => fmap.set(fkey(f), { ...f, _kind: 'confirmed' }));
+    findings.forEach(f => { const k = fkey(f); if (!fmap.has(k)) fmap.set(k, { ...f, _kind: (f.type === 'dast_confirmed' || f.type === 'agent_confirmed') ? 'confirmed' : 'potential' }); });
+    const ord = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    const bySev = (a, b) => (ord[(a.severity || 'info').toLowerCase()] ?? 9) - (ord[(b.severity || 'info').toLowerCase()] ?? 9);
+    const conf = [...fmap.values()].filter(f => f._kind === 'confirmed').sort(bySev);
+    const leads = [...fmap.values()].filter(f => f._kind === 'potential').sort(bySev);
+    const sevCount = list => { const c = {}; list.forEach(f => { const s = (f.severity || 'info').toLowerCase(); c[s] = (c[s] || 0) + 1; }); return c; };
+    const confSev = sevCount(conf), leadSev = sevCount(leads);
+    const modsRan = Object.keys(results).length, modsTotal = scan.modules_total || modsRan;
 
-    let findingsHtml = '';
-    for (const f of findings.slice(0, 100)) {
-      const sev = f.severity || 'info';
-      const c = sevColors[sev] || '#5a7a80';
-      findingsHtml += `<tr><td><span style="background:${c};color:#000;padding:2px 8px;border-radius:2px;font-size:11px;font-weight:700">${sev.toUpperCase()}</span></td>`;
-      findingsHtml += `<td>${esc(f.name || f.vuln_class || 'Unknown')}</td>`;
-      findingsHtml += `<td style="word-break:break-all;font-size:12px">${esc(f.url || '')}</td></tr>`;
-    }
+    const sevCls = s => { s = String(s || 'info').toLowerCase(); return s === 'critical' ? 'crit' : s === 'high' ? 'high' : s === 'medium' ? 'med' : s === 'low' ? 'low' : 'info'; };
+    const pills = (c, lead) => ['critical', 'high', 'medium', 'low', 'info'].filter(s => c[s]).map(s => `<span class="ag-sev ${sevCls(s)}${lead ? ' lead' : ''}"><span class="n">${c[s]}</span> ${s}</span>`).join('');
+    const scCls = s => { const n = String(s || '').charAt(0); return n === '2' ? 's2' : n === '3' ? 's3' : n === '4' ? 's4' : n === '5' ? 's5' : 's0'; };
+    const poc = f => {
+      const ev = f.evidence || {}; let p = '';
+      if (ev.payload) p += `${ev.method || 'GET'} ${f.url || ''}${ev.param ? `   (param: ${ev.param})` : ''}\npayload: ${ev.payload}\n`;
+      if (ev.matched) p += `matched: ${ev.matched}\n`;
+      if (ev.reflected_origin) p += `Access-Control-Allow-Origin: ${ev.reflected_origin}\nAllow-Credentials: ${ev.allow_credentials}\n`;
+      if (ev.location) p += `Location: ${ev.location}\n`;
+      if (ev.base_time !== undefined) p += `baseline ${ev.base_time}s -> payload ${ev.delay_time}s\n`;
+      if (ev.detail && !ev.payload) p += `${ev.detail}\n`;
+      if (!p.trim()) p = JSON.stringify(ev, null, 2);
+      return p.trim();
+    };
+    const card = (f, open) => {
+      const cls = sevCls(f.severity), ev = f.evidence || {};
+      return `<details class="ag-fcard ${cls}${f._kind === 'potential' ? ' lead' : ''}"${open ? ' open' : ''}>
+        <summary class="ag-fh"><span class="ag-sev ${cls}"><span class="n">${esc((f.severity || 'info').slice(0, 4).toUpperCase())}</span></span><span class="title">${esc(f.name || f.vuln_class || 'Finding')}</span>${f.vuln_class ? `<span class="cls">${esc(f.vuln_class)}</span>` : ''}<span class="chev">▸</span></summary>
+        <div class="ag-fb">
+          ${f.url ? `<div class="ag-kv"><span class="k">Endpoint</span><span class="v">${esc(f.url)}</span></div>` : ''}
+          ${ev.param ? `<div class="ag-kv"><span class="k">Parameter</span><span class="v">${esc(ev.param)}</span></div>` : ''}
+          ${(ev.note || ev.detail) ? `<div class="ag-kv"><span class="k">Impact</span><span class="v">${esc(ev.note || ev.detail)}</span></div>` : ''}
+          <div class="ag-poc"><div class="lbl">Proof of concept</div><div class="ag-code">${esc(poc(f))}</div></div>
+        </div></details>`;
+    };
+    const hostRows = (hosts.length
+      ? hosts.map(h => `<div class="rp-row"><span class="sc ${scCls(h.status_code)}">${esc(String(h.status_code || '—'))}</span><span class="u">${esc(h.url || '')}</span><span class="t">${esc((h.tech || []).join(', '))}</span></div>`).join('')
+      : live.map(u => `<div class="rp-row"><span class="u">${esc(u)}</span></div>`).join('')) || '<div class="rp-empty">none</div>';
+    const urlRows = urls.length ? urls.slice(0, 500).map(u => `<div class="rp-line">${esc(u)}</div>`).join('') : '<div class="rp-empty">none</div>';
+    const modRows = Object.entries(results).map(([name, r]) => `<div class="rp-row"><span class="sc ${r.status === 'success' ? 's2' : r.status === 'skipped' ? 's0' : 's5'}">${esc(r.status || '')}</span><span class="u">${esc(name)} <small>${esc(r.tool_used || 'built-in')}${r.fallback ? ' · fallback' : ''}</small></span><span class="t">${r.items_count} · ${r.duration}s</span></div>`).join('') || '<div class="rp-empty">none</div>';
 
-    let confirmedHtml = '';
-    for (const c of confirmed.slice(0, 50)) {
-      const sev = c.severity || 'info';
-      const col = sevColors[sev] || '#5a7a80';
-      confirmedHtml += `<div style="border-left:3px solid ${col};padding:8px 16px;margin:8px 0;background:#161d1f">`;
-      confirmedHtml += `<strong>${esc(c.name || '')}</strong><br>`;
-      confirmedHtml += `<code style="font-size:12px;color:#5a7a80">${esc(c.url || '')}</code>`;
-      if (c.evidence) confirmedHtml += `<br><span style="font-size:11px;color:#888">Evidence: ${esc(JSON.stringify(c.evidence).slice(0, 200))}</span>`;
-      confirmedHtml += '</div>';
-    }
-
-    let modulesHtml = '';
-    for (const [name, r] of Object.entries(results)) {
-      const sc = r.status === 'success' ? '#00d4aa' : r.status === 'error' ? '#ff4444' : '#5a7a80';
-      modulesHtml += `<tr><td>${name}</td><td>${r.tool_used || 'node'}</td>`;
-      modulesHtml += `<td style="color:${sc}">${r.status}</td>`;
-      modulesHtml += `<td>${r.items_count}</td><td>${r.duration}s</td></tr>`;
-    }
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
+    const html = `<!doctype html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WebKiller 2.0 — ${esc(scan.target)}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0e0f;color:#c8d8da;font-family:'Inter',system-ui,sans-serif;padding:40px;line-height:1.6}
-h1{color:#00d4aa;font-size:28px;margin-bottom:4px}
-h2{color:#00d4aa;font-size:18px;margin:32px 0 12px;text-transform:uppercase;letter-spacing:2px;font-weight:600}
-h3{font-size:14px;color:#5a7a80;margin-bottom:16px}
-.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0}
-.meta-card{background:#111618;border:1px solid #1a2528;border-radius:10px;padding:16px}
-.meta-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#5a7a80;margin-bottom:4px}
-.meta-value{font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.teal{color:#00d4aa} .amber{color:#ffcc00} .red{color:#ff4444}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:8px 12px;border-bottom:1px solid #1a2528;color:#5a7a80;font-size:11px;text-transform:uppercase;letter-spacing:1px}
-td{padding:8px 12px;border-bottom:1px solid #111618}
-code{font-family:'JetBrains Mono',monospace;font-size:12px}
-.list{background:#111618;border:1px solid #1a2528;border-radius:10px;padding:16px;max-height:400px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8}
-.footer{margin-top:48px;padding-top:16px;border-top:1px solid #1a2528;font-size:11px;color:#5a7a80;text-align:center}
-@media(max-width:600px){
-  body{padding:16px}
-  h1{font-size:22px}
-  .meta{grid-template-columns:1fr 1fr;gap:10px}
-  .meta-value{font-size:20px}
-  table{font-size:11px}
-  th,td{padding:6px 8px}
-  th:nth-child(5),td:nth-child(5){display:none}
-  .list{font-size:11px;word-break:break-all;max-height:300px}
-}
-</style>
-</head>
-<body>
-<h1>WebKiller 2.0 — Recon Report</h1>
-<h3>${esc(scan.target)} · Profile: ${esc(scan.profile)} · ${started}</h3>
-
-<div class="meta">
-  <div class="meta-card"><div class="meta-label">Subdomains</div><div class="meta-value teal">${subdomains.length}</div></div>
-  <div class="meta-card"><div class="meta-label">Live Hosts</div><div class="meta-value teal">${live.length}</div></div>
-  <div class="meta-card"><div class="meta-label">Findings</div><div class="meta-value amber">${findings.length}</div></div>
-  <div class="meta-card"><div class="meta-label">Confirmed</div><div class="meta-value red">${confirmed.length}</div></div>
-</div>
-
-<h2>Module Results</h2>
-<table>
-<thead><tr><th>Module</th><th>Tool</th><th>Status</th><th>Items</th><th>Duration</th></tr></thead>
-<tbody>${modulesHtml}</tbody>
-</table>
-
-${confirmedHtml ? '<h2>Confirmed Vulnerabilities</h2>' + confirmedHtml : ''}
-${findingsHtml ? '<h2>Findings</h2><table><thead><tr><th>Severity</th><th>Name</th><th>URL</th></tr></thead><tbody>' + findingsHtml + '</tbody></table>' : ''}
-${subdomains.length ? '<h2>Subdomains (' + subdomains.length + ')</h2><div class="list">' + subdomains.slice(0, 500).map(s => esc(s)).join('<br>') + '</div>' : ''}
-${live.length ? '<h2>Live Hosts (' + live.length + ')</h2><div class="list">' + live.slice(0, 500).map(s => esc(s)).join('<br>') + '</div>' : ''}
-${urls.length ? '<h2>URLs (' + urls.length + ')</h2><div class="list">' + urls.slice(0, 500).map(s => esc(s)).join('<br>') + '</div>' : ''}
-
-<div class="footer">
-  Generated by WebKiller 2.0 · ${started} — ${finished} · Duration: ${duration}
-</div>
-</body></html>`;
+<title>WebKiller — ${esc(scan.target)}</title>
+<style>${REPORT_CSS}</style></head><body><main class="rp">
+  <div class="ag-head"><div>
+    <div class="ag-title">${esc(scan.target)}</div>
+    <div class="ag-sub"><span class="ag-pill">WEBKILLER 2.0</span><span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span><span class="ag-pill done">✓ ${esc(scan.status || 'completed')}</span><span class="ag-pill">${esc(started)} · ${esc(duration)}</span></div>
+  </div></div>
+  <div class="ag-hero">
+    <div class="ag-verdict ${conf.length ? '' : leads.length ? 'leads' : 'clean'}">
+      <div class="bigrow"><div class="big ${conf.length ? '' : 'clean'}">${conf.length} confirmed</div>${leads.length ? `<div class="big lead">+ ${leads.length} unconfirmed</div>` : ''}</div>
+      <div class="cap">${conf.length ? 'proven with evidence' : leads.length ? 'detected but not reproduced' : 'no vulnerabilities confirmed'}</div>
+      ${pills(confSev, false) ? `<div class="sevlbl">Confirmed</div><div class="sevrow">${pills(confSev, false)}</div>` : ''}
+      ${pills(leadSev, true) ? `<div class="sevlbl">Leads to verify</div><div class="sevrow">${pills(leadSev, true)}</div>` : ''}
+    </div>
+    <div class="ag-statgrid">
+      <div class="ag-stat"><div class="k">Hosts</div><div class="v ac">${subdomains.length || hosts.length}<small> · ${live.length} live</small></div></div>
+      <div class="ag-stat"><div class="k">Endpoints</div><div class="v">${urls.length}</div></div>
+      <div class="ag-stat"><div class="k">Params</div><div class="v">${params.length}</div></div>
+      <div class="ag-stat"><div class="k">Modules</div><div class="v">${modsRan}<small>/${modsTotal} ran</small></div></div>
+    </div>
+  </div>
+  ${conf.length ? `<div class="ag-sec">Confirmed vulnerabilities <span class="ct">· ${conf.length}</span></div>${conf.map(f => card(f, (f.severity || '').toLowerCase() === 'critical' || (f.severity || '').toLowerCase() === 'high')).join('')}` : ''}
+  ${leads.length ? `<div class="ag-sec">Leads to verify <span class="ct">· ${leads.length}</span></div>${leads.map(f => card(f, false)).join('')}` : ''}
+  <details class="ag-fold" open><summary><span>Hosts</span><span class="ct">${subdomains.length || hosts.length} · ${live.length} live</span></summary><div class="rp-list">${hostRows}</div></details>
+  <details class="ag-fold"><summary><span>Endpoints</span><span class="ct">${urls.length}</span></summary><div class="rp-list">${urlRows}</div></details>
+  <details class="ag-fold"><summary><span>Modules</span><span class="ct">${modsRan}/${modsTotal} ran</span></summary><div class="rp-list">${modRows}</div></details>
+  <footer class="rp-foot">Generated by WebKiller 2.0 · ${esc(started)} — ${esc(finished)} · ${esc(duration)}</footer>
+</main></body></html>`;
 
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Content-Disposition', `attachment; filename="webkiller_${scan.target}_${req.params.scanId}.html"`);

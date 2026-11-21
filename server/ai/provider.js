@@ -36,7 +36,7 @@ class OpenAICompatProvider {
     this.timeoutMs = timeoutMs || 60000;
   }
 
-  async chat({ system, user, messages, temperature = 0.2, maxTokens, model, tools, toolChoice } = {}) {
+  async chat({ system, user, messages, temperature = 0.2, maxTokens, model, tools, toolChoice, signal } = {}) {
     if (!this.baseURL) throw new AIError('AI endpoint is not configured', 'no_base_url');
 
     let msgs = messages;
@@ -61,7 +61,7 @@ class OpenAICompatProvider {
     };
     if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
 
-    const { status, text } = await this._request(`${this.baseURL}/chat/completions`, headers, payload);
+    const { status, text } = await this._request(`${this.baseURL}/chat/completions`, headers, payload, signal);
     if (status < 200 || status >= 300) {
       let detail = text.slice(0, 300);
       try { detail = JSON.parse(text).error?.message || detail; } catch { /* keep raw */ }
@@ -79,8 +79,9 @@ class OpenAICompatProvider {
   // NODE_TLS_REJECT_UNAUTHORIZED=0 that scan modules toggle while probing
   // targets: the API key travels here, so TLS verification is forced ON with an
   // explicit agent. One timeout covers headers AND body.
-  _request(urlStr, headers, payload) {
+  _request(urlStr, headers, payload, signal) {
     return new Promise((resolve, reject) => {
+      if (signal && signal.aborted) { reject(new AIError('aborted', 'aborted')); return; }
       let u;
       try { u = new URL(urlStr); } catch { reject(new AIError('invalid endpoint URL', 'bad_url')); return; }
       const https = require('https');
@@ -100,6 +101,7 @@ class OpenAICompatProvider {
         });
         res.on('end', () => resolve({ status: res.statusCode, text: Buffer.concat(chunks).toString('utf8') }));
       });
+      if (signal) signal.addEventListener('abort', () => req.destroy(new AIError('aborted', 'aborted')), { once: true });
       req.on('error', (e) => reject(e instanceof AIError ? e : new AIError(`network error: ${e.message}`, 'network')));
       req.setTimeout(this.timeoutMs, () => req.destroy(new AIError('request timed out', 'timeout')));
       req.end(payload);

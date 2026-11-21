@@ -1,6 +1,25 @@
 const { execFile, spawn } = require('child_process');
 const readline = require('readline');
 
+// Track live child processes so a scan stop — or the app quitting — can hard-kill
+// in-flight external tools instead of orphaning them (they'd otherwise keep
+// running after the window closes, reparented to launchd).
+const ACTIVE = new Set();
+function track(child) {
+  if (!child) return child;
+  ACTIVE.add(child);
+  const drop = () => ACTIVE.delete(child);
+  child.once('close', drop); child.once('exit', drop); child.once('error', drop);
+  return child;
+}
+function killActive() {
+  for (const c of ACTIVE) { try { c.kill('SIGTERM'); } catch { /* already gone */ } }
+  ACTIVE.clear();
+}
+// Runs synchronously on any process exit (incl. Electron app quit) — kill() just
+// sends a signal, so it is safe here.
+process.on('exit', killActive);
+
 function splitCmd(cmd) {
   const args = [];
   let current = '';
@@ -40,7 +59,7 @@ function runTool(cmd, timeout = 300, cwd = undefined) {
     const opts = { timeout: timeout * 1000, maxBuffer: 50 * 1024 * 1024 };
     if (cwd) opts.cwd = cwd;
 
-    execFile(resolveBin(bin), args, opts, (err, stdout, stderr) => {
+    const child = execFile(resolveBin(bin), args, opts, (err, stdout, stderr) => {
       const duration = (Date.now() - start) / 1000;
       if (err) {
         if (err.killed || err.code === 'ETIMEDOUT') {
@@ -53,6 +72,7 @@ function runTool(cmd, timeout = 300, cwd = undefined) {
       }
       resolve({ command: cmd, returncode: 0, stdout: stdout || '', stderr: stderr || '', duration, timedOut: false });
     });
+    track(child);
   });
 }
 
@@ -76,6 +96,7 @@ class StreamRunner {
     const parts = splitCmd(this.cmd);
     const [bin, ...args] = parts;
     this.proc = spawn(resolveBin(bin), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    track(this.proc);
 
     const rl = readline.createInterface({ input: this.proc.stdout });
     rl.on('line', (line) => {
@@ -118,4 +139,4 @@ async function batchAsync(items, concurrency, fn) {
   return results;
 }
 
-module.exports = { runTool, runToolLines, StreamRunner, splitCmd, batchAsync };
+module.exports = { runTool, runToolLines, StreamRunner, splitCmd, batchAsync, killActive };

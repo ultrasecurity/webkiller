@@ -9,7 +9,16 @@ const HOSTNAME = /^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})*\.[a-z
 const FORBIDDEN = /[\s/\\?#@%*'"`$;|&<>(){}\[\]]/;
 
 function normalizeTarget(raw) {
-  return String(raw || '').trim().toLowerCase().replace(/\.+$/, '');
+  let t = String(raw || '').trim();
+  // Accept a pasted URL or "host/path" and reduce it to a bare host[:port], so a user
+  // can paste "http://sub.example.com/app?x=1" and we scan sub.example.com. The host is
+  // still validated strictly below; new URL().host can never contain spaces or slashes.
+  if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(t)) {
+    try { t = new URL(t).host || t; } catch { /* leave as-is → isValidTarget will reject it */ }
+  } else if (t.includes('/')) {
+    t = t.split('/')[0];
+  }
+  return t.trim().toLowerCase().replace(/\.+$/, '');
 }
 
 // A target may carry an explicit port (host:port) for single-host scans of apps

@@ -3,6 +3,7 @@
    ============================================================ */
 
 :root {
+  --page-max:       clamp(1200px, 86vw, 1760px);
   --bg-void:        #0A0E0F;
   --bg-base:        #0A0E0F;
   --bg-surface:     #111618;
@@ -165,7 +166,9 @@ a { color: inherit; text-decoration: none; }
 @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
 
 /* ── PAGE ──────────────────────── */
-.page { max-width: 1200px; margin: 0 auto; padding: var(--space-6); }
+.page { max-width: var(--page-max); margin: 0 auto; padding: var(--space-6) clamp(var(--space-4), 2.5vw, var(--space-7)); }
+/* keep running text readable even when the page gets wide */
+.section-sub, .choice-desc, .pb-desc, .ag-verdict .cap { max-width: 72ch; }
 
 /* ── SECTION HEADERS ──────────────────────── */
 .section-header {

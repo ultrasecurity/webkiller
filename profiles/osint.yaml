@@ -1,5 +1,0 @@
-name: osint
-description: OSINT only — public footprint and leaks
-phases: [P0, P7, P8]
-modules:
-  - osint_dns

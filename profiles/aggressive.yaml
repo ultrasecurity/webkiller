@@ -1,5 +1,5 @@
 name: aggressive
-description: Full recon + active vuln confirmation (DAST/OOB/authz)
+description: Full recon + every active vuln-confirm (DAST/OOB/authz/secrets) — maximum coverage
 phases: [P0, P1, P2, P3, P4, P5, P6a, P6b, P7, P8]
 modules:
   - subdomains_passive
@@ -16,6 +16,18 @@ modules:
   - vuln_confirm
   - xss_confirm
   - sqli_confirm
+  - ssti_confirm
+  - lfi_confirm
+  - ssrf_confirm
+  - xxe_confirm
+  - deser_confirm
+  - jwt_confirm
+  - massassign_confirm
+  - nosqli_confirm
+  - cors_confirm
+  - openredirect_confirm
+  - protopollution_confirm
+  - graphql_confirm
   - authz_probe
   - bypass_403
   - secret_verify
