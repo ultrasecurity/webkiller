@@ -17,6 +17,7 @@ modules:
   - jsrecon
   - params
   - archive_recon
+  - lead_triage
   - screenshots
   - vuln_signal
   - osint_dns

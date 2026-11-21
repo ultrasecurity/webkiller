@@ -24,6 +24,7 @@ function _loadModules() {
     jsrecon:            './modules/jsrecon',
     params:             './modules/params',
     archive_recon:      './modules/archive_recon',
+    lead_triage:        './modules/lead_triage',
     screenshots:        './modules/screenshots',
     vuln_signal:        './modules/vuln_signal',
     vuln_confirm:       './modules/vuln_confirm',
