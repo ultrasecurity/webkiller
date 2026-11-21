@@ -3,4 +3,5 @@ description: Passive recon only — no active probing of target
 phases: [P0, P1, P7, P8]
 modules:
   - subdomains_passive
+  - asn_cidr
   - osint_dns

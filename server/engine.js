@@ -14,6 +14,7 @@ function _loadModules() {
     probe:              './modules/probe',
     favicon_hash:       './modules/favicon_hash',
     cert_intel:         './modules/cert_intel',
+    asn_cidr:           './modules/asn_cidr',
     urls:               './modules/urls',
     portscan:           './modules/portscan',
     fingerprint:        './modules/fingerprint',

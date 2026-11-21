@@ -8,6 +8,7 @@ modules:
   - portscan
   - favicon_hash
   - cert_intel
+  - asn_cidr
   - fingerprint
   - urls
   - content

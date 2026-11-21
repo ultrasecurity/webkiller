@@ -658,6 +658,13 @@ async function resOsintView(scanId, content) {
     const rows = certs.map(c => `<div class="k">CERT</div><div class="v"><b>${esc(c.host || '')}:${esc(String(c.port || ''))}</b> · CN ${esc(c.subject_cn || '?')}${c.self_signed ? ' · <span class="mut">self-signed</span>' : ''} · exp ${esc(c.valid_to || '?')}<br>${(c.sans && c.sans.length) ? ('SANs: ' + c.sans.map(s => `<code>${esc(s)}</code>`).join(' ')) : '<span class="mut">no SAN hostnames</span>'}</div>`).join('');
     html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">CERT</span> TLS cert SANs <span class="mut">· sibling / internal hostnames</span></div><div class="res-dns">${rows}</div></div>`;
   }
+  const asns = recs.filter(r => r.type === 'asn');
+  const asnRanges = recs.filter(r => r.type === 'asn_ranges');
+  if (asns.length || asnRanges.length) {
+    const r1 = asns.map(a => `<div class="k">ASN</div><div class="v"><b>${esc(a.ip || '')}</b> → <code>AS${esc(String(a.asn))}</code> · ${esc(a.cidr || '')} · ${esc(a.as_name || '')}${a.cc ? ` <span class="mut">(${esc(a.cc)})</span>` : ''}</div>`).join('');
+    const r2 = asnRanges.map(x => `<div class="k">RANGES</div><div class="v">AS${esc(String(x.asn))} announces <b>${esc(String(x.prefix_count))}</b> prefixes${(x.prefixes && x.prefixes.length) ? (': ' + x.prefixes.slice(0, 8).map(p => `<code>${esc(p)}</code>`).join(' ') + (x.prefix_count > 8 ? ' …' : '')) : ''}</div>`).join('');
+    html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">ASN</span> IP → ASN → CIDR <span class="mut">· org IP footprint</span></div><div class="res-dns">${r1}${r2}</div></div>`;
+  }
   if (whois) {
     const data = typeof whois.data === 'string' ? whois.data : JSON.stringify(whois.data, null, 2);
     html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">WHOIS</span> ${esc(whois.domain || '')}</div><div class="res-whois">${esc(data)}</div></div>`;
