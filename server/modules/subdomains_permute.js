@@ -58,9 +58,19 @@ class SubdomainsPermute extends BaseModule {
       return new ModuleResult({ module: SubdomainsPermute.moduleName, items: [], records: [], toolUsed: 'none' });
     }
 
+    // Wildcard-DNS guard: if a guaranteed-nonexistent name resolves, the zone
+    // answers everything — permutation would flood the pipeline with ghosts.
+    try {
+      await dns.promises.resolve4(`wk-wildcard-probe-zzq9x7.${apex}`);
+      this.emit('log', { msg: `Wildcard DNS on ${apex} — skipping permutation (every name resolves)` });
+      return new ModuleResult({ module: SubdomainsPermute.moduleName, status: 'success', items: [], records: [], toolUsed: 'wildcard-skip' });
+    } catch { /* NXDOMAIN — good, no wildcard */ }
+
     this.emit('log', { msg: `Resolving ${candidates.length} permutation candidates` });
     const resolved = await this._resolve(candidates);
-    const fresh = resolved.filter(h => !known.has(h.toLowerCase()));
+    // Only keep resolving names that are actually in scope (scope may be narrower
+    // than the whole apex); the confirm phase reads subdomains.txt directly.
+    const fresh = resolved.filter(h => !known.has(h.toLowerCase()) && this.scope.inScope(h));
 
     if (fresh.length) {
       this.workspace.appendLines('subdomains.txt', fresh); // feed the rest of the pipeline

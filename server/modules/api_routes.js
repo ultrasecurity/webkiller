@@ -59,7 +59,9 @@ class ApiRoutes extends BaseModule {
       }
     }
 
-    const urlList = [...urls];
+    // Scope gate: an OpenAPI servers[].url can point at a different host — the
+    // confirm phase attacks urls.txt, so only keep in-scope routes.
+    const urlList = [...urls].filter(u => { try { return this.scope.inScope(new URL(u).hostname); } catch { return false; } });
     if (urlList.length) this.workspace.appendLines('urls.txt', urlList);
     if (params.size) this.workspace.appendLines('params.txt', [...params]);
     if (records.length) this.workspace.appendJsonl('osint.jsonl', records);

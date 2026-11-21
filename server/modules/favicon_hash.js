@@ -97,14 +97,18 @@ class FaviconHash extends BaseModule {
     let faviconUrl = new URL('/favicon.ico', base).toString();
     let resp = await this._fetch(faviconUrl);
 
-    // If /favicon.ico is missing, parse the homepage for a declared icon link.
-    if (!resp.ok || !(resp.headers.get('content-type') || '').match(/image|icon|octet-stream/i)) {
+    const ctImage = (r) => r && r.ok && /image|icon|octet-stream/i.test(r.headers.get('content-type') || '');
+    // If /favicon.ico is missing or not an image, parse the homepage for a declared icon link.
+    if (!ctImage(resp)) {
       const declared = await this._declaredIcon(base);
       if (declared) { faviconUrl = declared; resp = await this._fetch(declared); }
     }
-    if (!resp.ok) return null;
+    if (!resp || !resp.ok) return null;
     const buf = Buffer.from(await resp.arrayBuffer());
     if (!buf.length) return null;
+    // Never hash an HTML/error body served at /favicon.ico (SPA catch-all): require
+    // an image content-type or a real image signature, else the Shodan pivot is bogus.
+    if (!/image|icon|octet-stream/i.test(resp.headers.get('content-type') || '') && !this._imageMagic(buf)) return null;
 
     const hash = shodanFaviconHash(buf);
     const md5 = crypto.createHash('md5').update(buf).digest('hex');
@@ -119,6 +123,20 @@ class FaviconHash extends BaseModule {
       zoomeye_query: `iconhash:"${hash}"`,
       censys_query: `services.http.response.favicons.md5_hash:${md5}`,
     };
+  }
+
+  // Real image signatures, to reject an HTML/error body served at /favicon.ico.
+  _imageMagic(b) {
+    if (b.length < 4) return false;
+    if (b[0] === 0x89 && b[1] === 0x50) return true;                               // PNG
+    if (b[0] === 0x00 && b[1] === 0x00 && (b[2] === 0x01 || b[2] === 0x02) && b[3] === 0x00) return true; // ICO/CUR
+    if (b[0] === 0xff && b[1] === 0xd8) return true;                               // JPEG
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return true;              // GIF
+    if (b[0] === 0x42 && b[1] === 0x4d) return true;                               // BMP
+    if (b.slice(0, 4).toString('latin1') === 'RIFF') return true;                 // WEBP
+    const s = b.slice(0, 256).toString('utf8').trim().toLowerCase();
+    if (s.startsWith('<svg') || (s.startsWith('<?xml') && s.includes('<svg'))) return true; // SVG
+    return false;
   }
 
   async _declaredIcon(base) {

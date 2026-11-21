@@ -22,7 +22,10 @@ class LeadTriage extends BaseModule {
   static toolsNeeded = [];
 
   async execute() {
-    const urls = [...new Set(this.workspace.readLines('urls.txt').filter(Boolean))];
+    // Defensive scope gate: leads_<class>.txt is attacked by the confirm phase,
+    // so never promote an out-of-scope URL even if one slipped into urls.txt.
+    const urls = [...new Set(this.workspace.readLines('urls.txt').filter(Boolean))]
+      .filter(u => { try { return this.scope.inScope(new URL(u).hostname); } catch { return false; } });
     const perClass = {};
     for (const k of Object.keys(PATTERNS)) perClass[k] = new Set();
     const records = [];

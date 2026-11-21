@@ -69,7 +69,9 @@ class ArchiveRecon extends BaseModule {
       } catch { /* skip */ }
     }
 
-    const urlList = [...urls];
+    // Scope gate: sitemap <loc>, robots Sitemap:, and Wayback URLs are absolute and
+    // may point out of scope — the confirm phase attacks urls.txt, so drop them.
+    const urlList = [...urls].filter(u => { try { return this.scope.inScope(new URL(u).hostname); } catch { return false; } });
     if (urlList.length) this.workspace.appendLines('urls.txt', urlList);
     if (params.size) this.workspace.appendLines('params.txt', [...params]);
     if (records.length) this.workspace.appendJsonl('osint.jsonl', records);
