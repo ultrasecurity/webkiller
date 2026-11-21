@@ -798,6 +798,24 @@ async function renderSettings() {
       return `<div class="set-field"><label>${esc(p.label)}</label>
         <button class="set-sw" role="switch" aria-checked="${on}" data-mod="${esc(m.key)}" data-param="${esc(p.key)}" data-type="bool" ${disabled} aria-label="${esc(p.label)}"></button></div>`;
     }
+    if (p.type === 'secret') {
+      const isSet = val && typeof val === 'object' ? !!val.set : !!val;
+      const h = p.hint ? `<span class="help">— ${esc(p.hint)}</span>` : '';
+      const sel = `${esc(m.key)}:${esc(p.key)}`;
+      // "leave blank to keep" lives in the persistent sub-note, not the placeholder
+      // (placeholders vanish on focus and aren't screen-reader reliable).
+      const note = isSet
+        ? `✓ a token is stored — leave blank to keep it · <button type="button" class="set-linkbtn" data-secclear="${sel}">remove</button>`
+        : `stored locally (0600), never shown back`;
+      return `<div class="set-field wide">
+        <label>${esc(p.label)} ${h}</label>
+        <div class="set-inwrap">
+          <input type="password" autocomplete="off" value="" placeholder="${isSet ? '••••••••' : esc(p.hint || 'paste token')}" data-mod="${esc(m.key)}" data-param="${esc(p.key)}" data-type="secret" ${disabled}>
+          ${isSet ? `<button type="button" class="set-mini" data-sectest="${sel}">Test</button>` : ''}
+        </div>
+        <span class="set-inherit" data-secnote="${sel}">${note}</span>
+      </div>`;
+    }
     const wideCls = (p.type === 'file' || p.key === 'user_agent' || p.key === 'oob_url') ? ' wide' : '';
     const unit = p.unit ? `<span class="unit">${esc(p.unit)}</span>` : '';
     let ph = '';
@@ -1066,6 +1084,12 @@ async function renderSettings() {
       card.querySelectorAll('[data-param]').forEach(el => {
         const pk = el.dataset.param, t = el.dataset.type;
         if (el.getAttribute('role') === 'switch') { vals[pk] = el.getAttribute('aria-checked') === 'true'; return; }
+        if (t === 'secret') {
+          if (el.dataset.clear === '1') { vals[pk] = '__CLEAR__'; return; } // explicit remove
+          const sv = el.value.trim();
+          if (sv) vals[pk] = sv; // blank = keep the stored token
+          return;
+        }
         const v = el.value.trim();
         if (v === '') return;
         vals[pk] = t === 'number' ? Number(v) : v;
@@ -1086,6 +1110,25 @@ async function renderSettings() {
   $('#setSaveAll').addEventListener('click', saveAll);
   $$('[data-saveone]').forEach(b => b.addEventListener('click', saveAll));
   $('#setDiscard').addEventListener('click', () => renderSettings());
+
+  // secret field — Test (validate the stored token) + remove (explicit clear on Save)
+  $$('[data-sectest]').forEach(b => b.addEventListener('click', async () => {
+    const note = document.querySelector(`[data-secnote="${b.dataset.sectest}"]`);
+    b.disabled = true; const orig = b.textContent; b.textContent = '…';
+    try {
+      const res = await api('/github/validate-token', { method: 'POST', body: {} });
+      if (res.ok) { b.textContent = '✓ valid'; if (note) note.textContent = `✓ token valid${res.remaining != null ? ` — ${res.remaining} code-search req left` : ''}`; }
+      else { b.textContent = orig; b.disabled = false; if (note) note.textContent = `✕ ${res.error || 'invalid'}`; }
+    } catch { b.textContent = orig; b.disabled = false; }
+  }));
+  $$('[data-secclear]').forEach(b => b.addEventListener('click', () => {
+    const [mk, pk] = b.dataset.secclear.split(':');
+    const inp = document.querySelector(`input[data-mod="${mk}"][data-param="${pk}"][data-type="secret"]`);
+    if (inp) { inp.dataset.clear = '1'; inp.value = ''; inp.placeholder = '(will be removed on Save)'; inp.disabled = true; }
+    const note = document.querySelector(`[data-secnote="${b.dataset.secclear}"]`);
+    if (note) note.textContent = '⚠ token will be removed on Save';
+    markDirty();
+  }));
 
   // ---- AI pane (provider/model/key) ----
   function fillModels(p) { $('#modelSuggest').innerHTML = (suggested[p] || []).map(m => `<option value="${esc(m)}"></option>`).join(''); }

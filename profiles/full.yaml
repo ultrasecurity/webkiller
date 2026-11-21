@@ -11,6 +11,7 @@ modules:
   - cert_intel
   - asn_cidr
   - cloud_buckets
+  - github_dork
   - fingerprint
   - urls
   - content

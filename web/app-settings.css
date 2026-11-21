@@ -104,7 +104,10 @@
 .set-inwrap input{flex:1;background:none;border:0;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;padding:8px 11px;outline:none;min-width:0}
 .set-inwrap .unit{color:var(--text-muted);font-family:var(--font-mono);font-size:11px;padding:0 11px}
 .set-sub{font-size:11px;color:var(--text-muted)}
-.set-inherit{font-size:11px;color:var(--accent-info);display:flex;align-items:center;gap:6px}
+.set-inherit{font-size:11px;color:var(--accent-info);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.set-linkbtn{background:none;border:0;color:var(--accent-amber);cursor:pointer;font:inherit;font-size:11px;padding:0;text-decoration:underline;text-underline-offset:2px}
+.set-linkbtn:hover{color:var(--text-readable)}
+.set-inwrap .set-mini{margin:3px;padding:4px 10px;font-size:11px;flex:0 0 auto}
 
 .set-mod-foot{display:flex;align-items:center;gap:10px;margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border-subtle)}
 

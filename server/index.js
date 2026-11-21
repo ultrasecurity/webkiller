@@ -242,7 +242,7 @@ function setupRoutes(app) {
         ...m,
         tools,
         status,
-        values: st.modules[m.key] || {},
+        values: moduleSettings.maskSecrets(m.key, st.modules[m.key] || {}),
         enabled: st.enabled[m.key] !== false,
       };
     });
@@ -268,6 +268,30 @@ function setupRoutes(app) {
       res.json({ ok: true, saved });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Validate the stored GitHub token (the "Test" button on the github_dork secret
+  // field) without ever returning it — a cheap read-only /rate_limit call.
+  app.post('/api/github/validate-token', async (req, res) => {
+    try {
+      const mods = moduleSettings.load().modules || {};
+      const token = (mods.github_dork && mods.github_dork.github_token) || process.env.GITHUB_TOKEN;
+      if (!token) return res.json({ ok: false, error: 'no token stored — paste one and Save first' });
+      const r = await fetch('https://api.github.com/rate_limit', {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'WebKiller/2.0' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.status === 200) {
+        const j = await r.json();
+        const search = j.resources && j.resources.search;
+        return res.json({ ok: true, remaining: search ? search.remaining : undefined });
+      }
+      if (r.status === 401) return res.json({ ok: false, error: 'invalid or expired token' });
+      if (r.status === 403) return res.json({ ok: false, error: 'forbidden / rate-limited' });
+      return res.json({ ok: false, error: `GitHub returned ${r.status}` });
+    } catch (e) {
+      return res.json({ ok: false, error: e.message });
     }
   });
 

@@ -17,6 +17,7 @@ function _loadModules() {
     cert_intel:         './modules/cert_intel',
     asn_cidr:           './modules/asn_cidr',
     cloud_buckets:      './modules/cloud_buckets',
+    github_dork:        './modules/github_dork',
     urls:               './modules/urls',
     portscan:           './modules/portscan',
     fingerprint:        './modules/fingerprint',
