@@ -13,6 +13,7 @@ function _loadModules() {
     subdomains_active:  './modules/subdomains_active',
     probe:              './modules/probe',
     favicon_hash:       './modules/favicon_hash',
+    cert_intel:         './modules/cert_intel',
     urls:               './modules/urls',
     portscan:           './modules/portscan',
     fingerprint:        './modules/fingerprint',

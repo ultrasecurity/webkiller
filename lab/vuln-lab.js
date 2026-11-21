@@ -10,6 +10,10 @@
 // Run:  node lab/vuln-lab.js      (PORT via VPORT, default 8900)
 
 const http = require('http');
+const https = require('https');
+const os = require('os');
+const fs = require('fs');
+const path = require('path');
 const PORT = Number(process.env.VPORT || 8900);
 function readBody(req) {
   return new Promise((resolve) => {
@@ -291,7 +295,7 @@ ${[1, 2, 3, 4].map((l) => `<li>Proto-pollution L${l} (POST): <a href="/pp/${l}">
 ${[1, 2, 3, 4].map((l) => `<li>GraphQL L${l} (POST): <a href="/graphql/${l}">/graphql/${l}</a></li>`).join('')}
 </ul>`;
 
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   try {
     const u = new URL(req.url, 'http://127.0.0.1');
     const p = decodeURIComponent(u.pathname);
@@ -328,8 +332,31 @@ const server = http.createServer(async (req, res) => {
   } catch (e) {
     html(res, 500, 'error');
   }
-});
+};
 
+// Optional HTTPS listener with a self-signed cert whose SANs seed the cert-intel
+// (wide-recon) module with sibling/internal hostnames to discover. The cert is
+// generated at startup into a temp dir (ephemeral) — never written to the repo.
+function startTls(h) {
+  const TLS_PORT = Number(process.env.VPORT_TLS || 8443);
+  try {
+    const { execFileSync } = require('child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wk-lab-tls-'));
+    const keyPath = path.join(dir, 'key.pem');
+    const certPath = path.join(dir, 'cert.pem');
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+      '-keyout', keyPath, '-out', certPath, '-days', '365', '-subj', '/CN=lab.local',
+      '-addext', 'subjectAltName=DNS:lab.local,DNS:admin.lab.local,DNS:api-internal.lab.local,DNS:staging.lab.local,DNS:vpn.lab.local,IP:127.0.0.1'],
+      { stdio: 'ignore' });
+    https.createServer({ key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }, h)
+      .listen(TLS_PORT, '127.0.0.1', () => console.log(`WebKiller vuln lab (TLS) on https://127.0.0.1:${TLS_PORT}  — self-signed, SANs for cert-intel`));
+  } catch (e) {
+    console.log('TLS listener skipped (openssl unavailable?):', e.message);
+  }
+}
+
+const server = http.createServer(handler);
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`WebKiller vuln lab on http://127.0.0.1:${PORT}  (levels 1-4; 4 = patched)`);
 });
+startTls(handler);

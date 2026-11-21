@@ -10,6 +10,7 @@ const MODULE_META = [
   { key: 'probe', label: 'Host probe', group: 'Discovery', tool: 'httpx', fallback: true, desc: 'Find which hosts are live', params: [P('concurrency', 'Concurrency', 'number', { inheritsGlobal: true }), P('probe_timeout', 'Timeout', 'number', { unit: 's', def: 15 }), P('probe_follow_redirects', 'Follow redirects', 'bool'), P('probe_ports', 'Extra ports', 'text', { hint: 'e.g. 8080,8443' })] },
   { key: 'portscan', label: 'Port scan', group: 'Discovery', tool: 'naabu', desc: 'Open ports on live hosts', params: [P('top_ports', 'Top ports', 'number', { def: 1000 }), P('ports', 'Specific ports', 'text', { hint: 'e.g. 80,443,8080 — overrides top-ports' })] },
   { key: 'favicon_hash', label: 'Favicon hash', group: 'Discovery', tool: null, desc: 'Favicon → Shodan/Censys host pivot', params: [P('favicon_max_hosts', 'Max hosts', 'number', { def: 25 }), P('favicon_timeout', 'Timeout', 'number', { unit: 's', def: 10 })] },
+  { key: 'cert_intel', label: 'TLS cert intel', group: 'Discovery', tool: null, desc: 'Mine TLS cert SANs for sibling hosts', params: [P('cert_max_hosts', 'Max hosts', 'number', { def: 25 }), P('cert_timeout', 'Timeout', 'number', { unit: 's', def: 8 }), P('cert_ports', 'TLS ports', 'text', { hint: 'e.g. 443,8443' })] },
   { key: 'osint_dns', label: 'DNS OSINT', group: 'Discovery', tool: null, desc: 'DNS records & metadata', params: [] },
 
   // ── Mapping ──

@@ -653,6 +653,11 @@ async function resOsintView(scanId, content) {
     const rows = favicons.map(f => `<div class="k">ICON</div><div class="v"><b>${esc(f.host || '')}</b> · hash <b>${esc(String(f.hash))}</b> · ${esc(String(f.bytes))}b<br><code>${esc(f.shodan_query || '')}</code> <span class="mut">· md5 ${esc(String(f.md5 || '').slice(0, 12))}…</span></div>`).join('');
     html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">FAVICON</span> Hash pivots <span class="mut">· paste into Shodan/ZoomEye to find sibling hosts</span></div><div class="res-dns">${rows}</div></div>`;
   }
+  const certs = recs.filter(r => r.type === 'cert');
+  if (certs.length) {
+    const rows = certs.map(c => `<div class="k">CERT</div><div class="v"><b>${esc(c.host || '')}:${esc(String(c.port || ''))}</b> · CN ${esc(c.subject_cn || '?')}${c.self_signed ? ' · <span class="mut">self-signed</span>' : ''} · exp ${esc(c.valid_to || '?')}<br>${(c.sans && c.sans.length) ? ('SANs: ' + c.sans.map(s => `<code>${esc(s)}</code>`).join(' ')) : '<span class="mut">no SAN hostnames</span>'}</div>`).join('');
+    html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">CERT</span> TLS cert SANs <span class="mut">· sibling / internal hostnames</span></div><div class="res-dns">${rows}</div></div>`;
+  }
   if (whois) {
     const data = typeof whois.data === 'string' ? whois.data : JSON.stringify(whois.data, null, 2);
     html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">WHOIS</span> ${esc(whois.domain || '')}</div><div class="res-whois">${esc(data)}</div></div>`;
