@@ -22,6 +22,7 @@ function _loadModules() {
     content:            './modules/content',
     jsrecon:            './modules/jsrecon',
     params:             './modules/params',
+    archive_recon:      './modules/archive_recon',
     screenshots:        './modules/screenshots',
     vuln_signal:        './modules/vuln_signal',
     vuln_confirm:       './modules/vuln_confirm',

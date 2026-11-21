@@ -15,6 +15,7 @@ modules:
   - content
   - jsrecon
   - params
+  - archive_recon
   - screenshots
   - vuln_signal
   - osint_dns

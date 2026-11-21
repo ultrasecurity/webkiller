@@ -301,6 +301,15 @@ const handler = async (req, res) => {
     const p = decodeURIComponent(u.pathname);
     if (p === '/' || p === '/index.html') return html(res, 200, INDEX);
     if (p === '/favicon.ico') { res.writeHead(200, { 'Content-Type': 'image/x-icon' }); return res.end(FAVICON); }
+    // Declared-endpoint sources for the archive-recon (depth) module to mine.
+    if (p === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      return res.end(`User-agent: *\nDisallow: /admin\nDisallow: /api/internal\nDisallow: /backup\nDisallow: /secret/1\nSitemap: http://127.0.0.1:${PORT}/sitemap.xml\n`);
+    }
+    if (p === '/sitemap.xml') {
+      res.writeHead(200, { 'Content-Type': 'application/xml' });
+      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>http://127.0.0.1:${PORT}/xss/1?q=test</loc></url>\n<url><loc>http://127.0.0.1:${PORT}/hidden/report?doc=1&amp;fmt=pdf</loc></url>\n<url><loc>http://127.0.0.1:${PORT}/api/internal/users?id=1</loc></url>\n</urlset>\n`);
+    }
 
     let m;
     if ((m = p.match(/^\/xss\/([1-4])$/))) return xss(res, +m[1], u.searchParams.get('q') || '');
