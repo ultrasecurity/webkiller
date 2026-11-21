@@ -4,6 +4,7 @@ phases: [P0, P1, P2, P3, P4, P5, P6a, P7, P8]
 modules:
   - subdomains_passive
   - subdomains_active
+  - subdomains_permute
   - probe
   - portscan
   - favicon_hash

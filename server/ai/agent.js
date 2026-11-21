@@ -16,6 +16,7 @@ const MAX_HTTP_REQUESTS = 150;     // fine-grained requests the agent may send
 // Friendly tool name -> engine module name.
 const TOOL_MODULES = {
   enumerate_subdomains: 'subdomains_passive',
+  permute_subdomains:   'subdomains_permute',
   probe_live_hosts:     'probe',
   favicon_pivot:        'favicon_hash',
   inspect_cert:         'cert_intel',
@@ -48,6 +49,7 @@ const TOOL_MODULES = {
 
 const TOOL_DESC = {
   enumerate_subdomains: 'Passive subdomain enumeration (crt.sh, subfinder) for the in-scope target.',
+  permute_subdomains:   'Generate likely permutations of discovered subdomains (dev-, -staging, api2, internal.) and resolve them to find forgotten/internal hosts.',
   probe_live_hosts:     'Probe enumerated subdomains to find which hosts are live (HTTP/HTTPS).',
   favicon_pivot:        'Hash each live host\'s favicon and emit a Shodan/ZoomEye/Censys pivot to find sibling or hidden hosts serving the same icon.',
   inspect_cert:         'Pull the TLS certificate from live hosts and mine its SAN list for sibling/internal hostnames (admin., api., staging., internal).',

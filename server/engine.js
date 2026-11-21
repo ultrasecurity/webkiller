@@ -11,6 +11,7 @@ function _loadModules() {
   const modules = {
     subdomains_passive: './modules/subdomains_passive',
     subdomains_active:  './modules/subdomains_active',
+    subdomains_permute: './modules/subdomains_permute',
     probe:              './modules/probe',
     favicon_hash:       './modules/favicon_hash',
     cert_intel:         './modules/cert_intel',
