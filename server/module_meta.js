@@ -23,6 +23,7 @@ const MODULE_META = [
   { key: 'jsrecon', label: 'JS analysis', group: 'Mapping', tool: null, desc: 'Endpoints & secrets from JS', params: [P('jsrecon_max_files', 'Max JS files', 'number', { def: 50 })] },
   { key: 'archive_recon', label: 'Archive & robots mining', group: 'Mapping', tool: null, desc: 'robots/sitemap + Wayback endpoints & params', params: [P('archive_max_urls', 'Max URLs', 'number', { def: 3000 }), P('archive_wayback_limit', 'Wayback limit', 'number', { def: 1000 })] },
   { key: 'lead_triage', label: 'Lead triage', group: 'Mapping', tool: null, desc: 'gf-style per-class URL candidates', params: [P('triage_max_per_class', 'Max per class', 'number', { def: 200 })] },
+  { key: 'api_routes', label: 'API routes (OpenAPI)', group: 'Mapping', tool: null, desc: 'Discover REST routes from Swagger/OpenAPI', params: [P('api_max_hosts', 'Max hosts', 'number', { def: 10 }), P('api_timeout', 'Timeout', 'number', { unit: 's', def: 10 })] },
   { key: 'fingerprint', label: 'Fingerprint', group: 'Mapping', tool: 'wafw00f', fallback: true, desc: 'Tech & WAF detection', params: [] },
   { key: 'screenshots', label: 'Screenshots', group: 'Mapping', tool: 'gowitness', desc: 'Screenshot live hosts', params: [P('screenshot_max_hosts', 'Max hosts', 'number', { def: 25 }), P('screenshot_timeout', 'Timeout', 'number', { unit: 's', def: 15 }), P('screenshot_width', 'Width', 'number', { unit: 'px', def: 1280 }), P('screenshot_height', 'Height', 'number', { unit: 'px', def: 800 })] },
 

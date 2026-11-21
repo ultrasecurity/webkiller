@@ -21,6 +21,7 @@ function _loadModules() {
     portscan:           './modules/portscan',
     fingerprint:        './modules/fingerprint',
     content:            './modules/content',
+    api_routes:         './modules/api_routes',
     jsrecon:            './modules/jsrecon',
     params:             './modules/params',
     archive_recon:      './modules/archive_recon',

@@ -310,6 +310,20 @@ const handler = async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/xml' });
       return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>http://127.0.0.1:${PORT}/xss/1?q=test</loc></url>\n<url><loc>http://127.0.0.1:${PORT}/hidden/report?doc=1&amp;fmt=pdf</loc></url>\n<url><loc>http://127.0.0.1:${PORT}/api/internal/users?id=1</loc></url>\n</urlset>\n`);
     }
+    // OpenAPI spec for the api-routes (API-surface) module to parse.
+    if (p === '/openapi.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        openapi: '3.0.0', info: { title: 'Lab API', version: '1.0' },
+        servers: [{ url: `http://127.0.0.1:${PORT}` }],
+        paths: {
+          '/api/orders': { get: { parameters: [{ name: 'status', in: 'query' }, { name: 'limit', in: 'query' }] } },
+          '/api/users/{id}': { get: { parameters: [{ name: 'id', in: 'path' }] } },
+          '/api/admin/config': { get: { parameters: [{ name: 'key', in: 'query' }] } },
+          '/api/search': { get: { parameters: [{ name: 'q', in: 'query' }] } },
+        },
+      }));
+    }
 
     let m;
     if ((m = p.match(/^\/xss\/([1-4])$/))) return xss(res, +m[1], u.searchParams.get('q') || '');
