@@ -13,6 +13,7 @@ const MODULE_META = [
   { key: 'favicon_hash', label: 'Favicon hash', group: 'Discovery', tool: null, desc: 'Favicon → Shodan/Censys host pivot', params: [P('favicon_max_hosts', 'Max hosts', 'number', { def: 25 }), P('favicon_timeout', 'Timeout', 'number', { unit: 's', def: 10 })] },
   { key: 'cert_intel', label: 'TLS cert intel', group: 'Discovery', tool: null, desc: 'Mine TLS cert SANs for sibling hosts', params: [P('cert_max_hosts', 'Max hosts', 'number', { def: 25 }), P('cert_timeout', 'Timeout', 'number', { unit: 's', def: 8 }), P('cert_ports', 'TLS ports', 'text', { hint: 'e.g. 443,8443' })] },
   { key: 'asn_cidr', label: 'ASN → CIDR', group: 'Discovery', tool: null, desc: 'IP → ASN → announced IP ranges', params: [P('asn_max_ips', 'Max IPs', 'number', { def: 10 }), P('asn_max_prefixes', 'Max prefixes', 'number', { def: 200 })] },
+  { key: 'cloud_buckets', label: 'Cloud buckets', group: 'Discovery', tool: null, desc: 'Guess & probe S3/GCS/Azure buckets', params: [P('bucket_max_keywords', 'Max keywords', 'number', { def: 6 }), P('bucket_max_candidates', 'Max candidates', 'number', { def: 120 }), P('bucket_timeout', 'Timeout', 'number', { unit: 's', def: 7 })] },
   { key: 'osint_dns', label: 'DNS OSINT', group: 'Discovery', tool: null, desc: 'DNS records & metadata', params: [] },
 
   // ── Mapping ──

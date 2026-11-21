@@ -16,6 +16,7 @@ function _loadModules() {
     favicon_hash:       './modules/favicon_hash',
     cert_intel:         './modules/cert_intel',
     asn_cidr:           './modules/asn_cidr',
+    cloud_buckets:      './modules/cloud_buckets',
     urls:               './modules/urls',
     portscan:           './modules/portscan',
     fingerprint:        './modules/fingerprint',

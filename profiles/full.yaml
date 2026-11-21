@@ -10,6 +10,7 @@ modules:
   - favicon_hash
   - cert_intel
   - asn_cidr
+  - cloud_buckets
   - fingerprint
   - urls
   - content
