@@ -23,6 +23,10 @@ const page = (body) => `<!doctype html><html><body>${body}</body></html>`;
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
 const html = (res, code, body) => { res.writeHead(code, { 'Content-Type': 'text/html' }); res.end(page(body)); };
 
+// A fixed favicon so the favicon-hash (wide-recon) module computes a stable
+// Shodan/ZoomEye pivot hash against the lab. Deterministic bytes = deterministic hash.
+const FAVICON = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAQUlEQVR42mNkYGD4z0ABYBxVSFSFjP///xkYGBgY/jP8Z2BgYGBg+M/wn4GBgYGB4T/DfwYGBgYGhv8M/xkYGBgYAFVQD/1V3W2yAAAAAElFTkSuQmCC', 'base64');
+
 // A fixed set of "documents" for the UUID-id IDOR level.
 const DOCS = { '7b2e4c10-0000-4000-8000-000000000001': 'alice', '7b2e4c10-0000-4000-8000-000000000002': 'bob' };
 
@@ -292,6 +296,7 @@ const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://127.0.0.1');
     const p = decodeURIComponent(u.pathname);
     if (p === '/' || p === '/index.html') return html(res, 200, INDEX);
+    if (p === '/favicon.ico') { res.writeHead(200, { 'Content-Type': 'image/x-icon' }); return res.end(FAVICON); }
 
     let m;
     if ((m = p.match(/^\/xss\/([1-4])$/))) return xss(res, +m[1], u.searchParams.get('q') || '');

@@ -12,6 +12,7 @@ function _loadModules() {
     subdomains_passive: './modules/subdomains_passive',
     subdomains_active:  './modules/subdomains_active',
     probe:              './modules/probe',
+    favicon_hash:       './modules/favicon_hash',
     urls:               './modules/urls',
     portscan:           './modules/portscan',
     fingerprint:        './modules/fingerprint',

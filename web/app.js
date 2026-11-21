@@ -643,10 +643,15 @@ async function resOsintView(scanId, content) {
   if (!recs || !recs.length) { content.innerHTML = resEmpty('No OSINT collected — run the DNS OSINT module.'); return; }
   const whois = recs.find(r => r.type === 'whois');
   const dns = recs.filter(r => r.type === 'dns');
+  const favicons = recs.filter(r => r.type === 'favicon');
   let html = '<div class="res-osint">';
   if (dns.length) {
     const rows = dns.map(d => `<div class="k">${esc(d.record_type)}</div><div class="v">${(d.records || []).map(x => esc(typeof x === 'object' ? JSON.stringify(x) : String(x))).join('<br>')}</div>`).join('');
     html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">DNS</span> Records</div><div class="res-dns">${rows}</div></div>`;
+  }
+  if (favicons.length) {
+    const rows = favicons.map(f => `<div class="k">ICON</div><div class="v"><b>${esc(f.host || '')}</b> · hash <b>${esc(String(f.hash))}</b> · ${esc(String(f.bytes))}b<br><code>${esc(f.shodan_query || '')}</code> <span class="mut">· md5 ${esc(String(f.md5 || '').slice(0, 12))}…</span></div>`).join('');
+    html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">FAVICON</span> Hash pivots <span class="mut">· paste into Shodan/ZoomEye to find sibling hosts</span></div><div class="res-dns">${rows}</div></div>`;
   }
   if (whois) {
     const data = typeof whois.data === 'string' ? whois.data : JSON.stringify(whois.data, null, 2);

@@ -17,6 +17,7 @@ const MAX_HTTP_REQUESTS = 150;     // fine-grained requests the agent may send
 const TOOL_MODULES = {
   enumerate_subdomains: 'subdomains_passive',
   probe_live_hosts:     'probe',
+  favicon_pivot:        'favicon_hash',
   collect_urls:         'urls',
   fingerprint_tech:     'fingerprint',
   crawl_content:        'content',
@@ -46,6 +47,7 @@ const TOOL_MODULES = {
 const TOOL_DESC = {
   enumerate_subdomains: 'Passive subdomain enumeration (crt.sh, subfinder) for the in-scope target.',
   probe_live_hosts:     'Probe enumerated subdomains to find which hosts are live (HTTP/HTTPS).',
+  favicon_pivot:        'Hash each live host\'s favicon and emit a Shodan/ZoomEye/Censys pivot to find sibling or hidden hosts serving the same icon.',
   collect_urls:         'Collect URLs/endpoints for the live hosts (archives, crawl).',
   fingerprint_tech:     'Fingerprint technologies/servers on the live hosts.',
   crawl_content:        'Discover content/paths on the live hosts.',

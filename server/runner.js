@@ -72,6 +72,11 @@ function runTool(cmd, timeout = 300, cwd = undefined) {
       }
       resolve({ command: cmd, returncode: 0, stdout: stdout || '', stderr: stderr || '', duration, timedOut: false });
     });
+    // execFile leaves the child's stdin as an open pipe. ProjectDiscovery tools
+    // (httpx/naabu/katana/nuclei) read stdin when it is a pipe and block waiting
+    // for EOF — even when targets are passed via -l/-u — so the child never exits
+    // and the whole scan hangs. Send EOF immediately: these tools never take stdin.
+    if (child.stdin) { try { child.stdin.end(); } catch { /* already closed */ } }
     track(child);
   });
 }
