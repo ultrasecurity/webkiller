@@ -62,21 +62,30 @@ function save(input = {}) {
   const dir = homeDir();
   fs.mkdirSync(dir, { recursive: true });
 
-  const cur = load();
+  // Read raw (non-key fields + current ciphertext) WITHOUT decrypting — re-saving
+  // other settings must never touch the OS keychain.
+  const raw = readRaw();
+  const def = (k) => (raw[k] !== undefined ? raw[k] : DEFAULTS[k]);
   const toWrite = {
-    enabled: input.enabled !== undefined ? !!input.enabled : cur.enabled,
-    provider: input.provider !== undefined ? input.provider : cur.provider,
-    baseURL: input.baseURL !== undefined ? input.baseURL : cur.baseURL,
-    model: input.model !== undefined ? input.model : cur.model,
-    agentModel: input.agentModel !== undefined ? input.agentModel : cur.agentModel,
-    maxToolCalls: input.maxToolCalls !== undefined ? Math.max(1, Math.min(200, parseInt(input.maxToolCalls, 10) || 50)) : cur.maxToolCalls,
+    enabled: input.enabled !== undefined ? !!input.enabled : !!raw.enabled,
+    provider: input.provider !== undefined ? input.provider : def('provider'),
+    baseURL: input.baseURL !== undefined ? input.baseURL : def('baseURL'),
+    model: input.model !== undefined ? input.model : def('model'),
+    agentModel: input.agentModel !== undefined ? input.agentModel : def('agentModel'),
+    maxToolCalls: input.maxToolCalls !== undefined ? Math.max(1, Math.min(200, parseInt(input.maxToolCalls, 10) || 50)) : def('maxToolCalls'),
   };
 
-  const key = input.apiKey !== undefined ? input.apiKey : cur.apiKey;
-  if (key) {
+  if (typeof input.apiKey === 'string' && input.apiKey.trim()) {
+    const key = input.apiKey.trim();
     const ss = getSafeStorage();
     if (ss) toWrite.apiKeyEnc = ss.encryptString(key).toString('base64');
     else toWrite.apiKeyPlain = key; // dev fallback; flagged insecure on load
+    toWrite.keyMasked = maskKey(key); // plaintext, non-sensitive — lets the UI show state without decrypting
+  } else {
+    // keep the stored key as-is (never decrypt just to re-save the other fields)
+    if (raw.apiKeyEnc) toWrite.apiKeyEnc = raw.apiKeyEnc;
+    if (raw.apiKeyPlain) toWrite.apiKeyPlain = raw.apiKeyPlain;
+    if (raw.keyMasked) toWrite.keyMasked = raw.keyMasked;
   }
 
   fs.writeFileSync(settingsPath(), JSON.stringify(toWrite, null, 2), { mode: 0o600 });
@@ -89,19 +98,24 @@ function maskKey(k) {
   return k.length <= 8 ? '••••' : `${k.slice(0, 4)}…${k.slice(-4)}`;
 }
 
-// Safe shape for the UI: never includes the raw key.
+// Safe shape for the UI: never includes the raw key, and NEVER decrypts — so a
+// page load (and every classic scan) can't trigger the OS keychain prompt.
+// hasKey/keyMasked come from plaintext metadata written at save time; the key
+// itself is only decrypted at scan time (getProvider), when it's actually needed.
 function loadPublic() {
-  const s = load();
+  const raw = readRaw();
+  const out = { ...DEFAULTS, enabled: !!raw.enabled };
+  for (const k of ['provider', 'baseURL', 'model', 'agentModel', 'maxToolCalls']) if (raw[k] !== undefined) out[k] = raw[k];
   return {
-    enabled: s.enabled,
-    provider: s.provider,
-    baseURL: s.baseURL,
-    model: s.model,
-    agentModel: s.agentModel,
-    hasKey: !!s.apiKey,
-    keyMasked: maskKey(s.apiKey),
-    insecureKey: s.insecureKey,
-    maxToolCalls: s.maxToolCalls,
+    enabled: out.enabled,
+    provider: out.provider,
+    baseURL: out.baseURL,
+    model: out.model,
+    agentModel: out.agentModel,
+    hasKey: !!(raw.apiKeyEnc || raw.apiKeyPlain),
+    keyMasked: raw.keyMasked || (raw.apiKeyPlain ? maskKey(raw.apiKeyPlain) : ''),
+    insecureKey: !!raw.apiKeyPlain,
+    maxToolCalls: out.maxToolCalls,
   };
 }
 
