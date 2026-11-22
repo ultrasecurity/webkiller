@@ -2,9 +2,12 @@
 // Deterministic (no AI). Primary signal = CWE; fallback = description keywords.
 //
 // SAFE DEFAULT: when the class is unclear, the verdict is 'unverifiable' — an
-// ambiguous CVE is NEVER pushed into the active-verify path. Destructive classes
-// (DoS, memory corruption, RCE, command/code injection, deserialization) are
-// always 'unverifiable' so they can never be auto-triggered.
+// ambiguous CVE is NEVER pushed into the active-verify path. Classes whose PROOF
+// would itself break the target (DoS, memory corruption, crash, integer over/under,
+// race) stay 'unverifiable'. Code/command execution, deserialization and file upload
+// ARE candidates — but verified ONLY via a benign, read-only PoC (nuclei templates,
+// OOB callback, a harmless `id`), never a destructive exploit. The agent stays GET-only;
+// those RCE-class checks come from vetted nuclei templates, not model-crafted payloads.
 
 // CWEs whose exploitation is destructive or has no safe, observable remote tell.
 const UNVERIFIABLE_CWE = {
@@ -14,9 +17,6 @@ const UNVERIFIABLE_CWE = {
   'CWE-416': 'memory corruption (use-after-free)', 'CWE-415': 'memory corruption (double-free)',
   'CWE-476': 'crash (null deref)', 'CWE-401': 'denial of service (leak)',
   'CWE-190': 'integer overflow', 'CWE-191': 'integer underflow',
-  'CWE-94': 'remote code execution', 'CWE-95': 'remote code execution', 'CWE-96': 'remote code execution',
-  'CWE-77': 'command injection', 'CWE-78': 'command injection',
-  'CWE-502': 'insecure deserialization (RCE)', 'CWE-434': 'arbitrary file upload (RCE)',
   'CWE-362': 'race condition',
 };
 // CWEs that usually have a safe, observable remote tell → active-verify candidates.
@@ -30,6 +30,11 @@ const CANDIDATE_CWE = new Set([
   'CWE-287', 'CWE-306', 'CWE-285', 'CWE-639', 'CWE-566', // auth / access control
   'CWE-611', // XXE
   'CWE-74', 'CWE-113', // injection with observable reflection
+  // Verified ONLY by a benign, read-only PoC (nuclei templates / OOB / `id`) — never a destructive exploit:
+  'CWE-94', 'CWE-95', 'CWE-96', // code / eval injection → prove with a harmless command
+  'CWE-77', 'CWE-78', // OS command injection → `id`/`ls` or OOB callback
+  'CWE-502', // insecure deserialization → benign/OOB gadget only (e.g. URLDNS DNS ping)
+  'CWE-434', // arbitrary file upload → harmless marker file + fetch-back
 ]);
 
 const UNVERIFIABLE_KW = [
