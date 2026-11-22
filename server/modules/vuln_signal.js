@@ -28,7 +28,7 @@ class VulnSignal extends BaseModule {
     const nTimeout = this.config.nuclei_timeout || 15;
     const conc = this.config.nuclei_concurrency ? ` -c ${this.config.nuclei_concurrency}` : '';
     const result = await runTool(
-      `nuclei -l ${liveFile} -silent -json -severity ${severity}${tags} -type http -rate-limit ${rateLimit} -timeout ${nTimeout}${conc} -retries 1`,
+      `nuclei -l ${liveFile} -silent -jsonl -duc -severity ${severity}${tags} -type http -rate-limit ${rateLimit} -timeout ${nTimeout}${conc} -retries 1`,
       600,
     );
 

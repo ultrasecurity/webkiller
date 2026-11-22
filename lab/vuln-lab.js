@@ -299,8 +299,20 @@ const handler = async (req, res) => {
   try {
     // Deliberately old/vulnerable service banners so the service_cve module
     // (nmap -sV) detects a version and maps it to CVEs. Fake, for testing only.
-    res.setHeader('Server', 'Apache/2.2.8 (Unix)');
+    res.setHeader('Server', 'Apache/2.4.49 (Unix)');
     res.setHeader('X-Powered-By', 'PHP/5.3.1');
+    // Mimic CVE-2021-41773 / CVE-2021-42013 (Apache 2.4.49 path traversal) just
+    // enough for a nuclei template to actually CONFIRM it: a traversal request that
+    // reaches /etc/passwd gets a passwd-shaped body. Lets the CVE-verify engine
+    // genuinely VERIFY a lead end-to-end in the local lab. Fake, for testing only.
+    {
+      let dec = req.url; try { dec = decodeURIComponent(req.url); } catch { /* keep raw */ }
+      const traversal = req.url.includes('%2e') || dec.includes('../') || req.url.includes('/..');
+      if (traversal && /etc\/passwd/i.test(dec)) {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        return res.end('root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\n');
+      }
+    }
     const u = new URL(req.url, 'http://127.0.0.1');
     const p = decodeURIComponent(u.pathname);
     if (p === '/' || p === '/index.html') return html(res, 200, INDEX);

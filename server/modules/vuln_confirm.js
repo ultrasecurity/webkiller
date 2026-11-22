@@ -24,7 +24,7 @@ class VulnConfirm extends BaseModule {
     this.emit('log', { msg: `Running nuclei DAST on ${urls.length} URLs` });
     const rateLimit = this.config.rate_limit || 30;
     const result = await runTool(
-      `nuclei -l ${urlsFile} -silent -json -dast -severity critical,high,medium -rate-limit ${rateLimit} -timeout 20 -retries 0`,
+      `nuclei -l ${urlsFile} -silent -jsonl -duc -dast -severity critical,high,medium -rate-limit ${rateLimit} -timeout 20 -retries 0`,
       900,
     );
 

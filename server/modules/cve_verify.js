@@ -113,9 +113,10 @@ class CveVerify extends BaseModule {
     const bin = toolPath('nuclei') || 'nuclei';
     const ids = [...new Set(cves)].join(',');
     const target = /^https?:\/\//.test(url) ? url : `http://${url}`;
-    // -json to match the repo's existing nuclei parsing; templates limited to
-    // these CVE ids; destructive template classes excluded (defense-in-depth).
-    const res = await runTool(`${bin} -u ${target} -id ${ids} -json -silent -exclude-tags dos,intrusive,fuzz -timeout 10 -retries 1`, 180);
+    // -jsonl (nuclei v3 renamed -json) + -duc (never auto-update templates mid-scan,
+    // which otherwise hangs/varies by network). Templates limited to these CVE ids;
+    // destructive template classes excluded (defense-in-depth).
+    const res = await runTool(`${bin} -u ${target} -id ${ids} -jsonl -silent -duc -exclude-tags dos,intrusive,fuzz -timeout 10 -retries 1`, 180);
     for (const line of (res.stdout || '').split('\n')) {
       if (!line.trim()) continue;
       let d; try { d = JSON.parse(line); } catch { continue; }
