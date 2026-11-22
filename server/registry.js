@@ -6,7 +6,7 @@ const TOOLS = {
   dnsx:                { check: 'dnsx -version',                required_for: ['subdomains_active', 'subdomains_permute'] },
   naabu:               { check: 'naabu -version',               required_for: ['portscan'] },
   nmap:                { check: 'nmap --version',               required_for: ['portscan', 'service_cve'] },
-  nuclei:              { check: 'nuclei -version',              required_for: ['vuln_signal', 'vuln_confirm'] },
+  nuclei:              { check: 'nuclei -version',              required_for: ['vuln_signal', 'vuln_confirm', 'cve_verify'] },
   katana:              { check: 'katana -version',              required_for: ['urls'] },
   gau:                 { check: 'gau -version',                 required_for: ['urls'] },
   ffuf:                { check: 'ffuf -V',                      required_for: ['content'] },

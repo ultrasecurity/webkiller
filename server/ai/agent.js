@@ -112,7 +112,7 @@ const INTRUSIVE = new Set([
 ]);
 
 // Finding-producing engine modules, for the post-agent coverage sweep (engine.js).
-const CONFIRM_MODULES = ['service_cve', 'vuln_signal', 'vuln_confirm', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'authz_probe', 'bypass_403', 'secret_verify'];
+const CONFIRM_MODULES = ['service_cve', 'cve_verify', 'vuln_signal', 'vuln_confirm', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'authz_probe', 'bypass_403', 'secret_verify'];
 
 function buildTools({ allowIntrusive = false, exclude = [] } = {}) {
   const ex = new Set(exclude); // prod-safe: drop loud/active modules (ffuf brute, full nuclei) by friendly name

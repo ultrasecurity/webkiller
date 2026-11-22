@@ -145,6 +145,8 @@ class ServiceCve extends BaseModule {
       cvss: c.cvss,
       cve: c.id,
       cpe,
+      cwe: c.cwe || [],
+      summary: c.summary || '', // full NVD description — classifier input (display uses evidence.detail)
       url: svc.port ? `${host}:${svc.port}` : host,
       module: ServiceCve.moduleName,
       evidence: { detail: `nmap -sV banner → ${cpe}. ${c.summary || ''}`.slice(0, 600), version_based: true },
@@ -220,7 +222,12 @@ class ServiceCve extends BaseModule {
     const cvss = pick && pick.cvssData ? pick.cvssData.baseScore : undefined;
     let severity = pick && ((pick.cvssData && pick.cvssData.baseSeverity) || pick.baseSeverity);
     severity = String(severity || this._sevFromScore(cvss) || 'info').toLowerCase();
-    return { id: cve.id, cvss, severity, summary: desc ? desc.value : '' };
+    // CWE ids are the strongest signal for the verifiability classifier; keep them
+    // plus the full (untruncated) description so classification runs on clean data.
+    const cwe = (cve.weaknesses || [])
+      .flatMap(w => (w.description || []).map(d => d.value))
+      .filter(v => /^CWE-\d+$/.test(v));
+    return { id: cve.id, cvss, severity, summary: desc ? desc.value : '', cwe: [...new Set(cwe)] };
   }
 
   _sevFromScore(s) {

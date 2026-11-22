@@ -477,6 +477,10 @@ body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,s
     const bySev = (a, b) => (ord[(a.severity || 'info').toLowerCase()] ?? 9) - (ord[(b.severity || 'info').toLowerCase()] ?? 9);
     const conf = [...fmap.values()].filter(f => f._kind === 'confirmed').sort(bySev);
     const leads = [...fmap.values()].filter(f => f._kind === 'potential').sort(bySev);
+    // CVE verification side-file → attach status onto each cve finding for the card.
+    const verifs = readJsonl('verifications.jsonl');
+    const vmap = {}; verifs.forEach(v => { vmap[`${v.cve}|${v.url}`] = v; });
+    [...conf, ...leads].forEach(f => { if ((f.vuln_class === 'cve' || f.cve) && !f.verification) { const v = vmap[`${f.cve}|${f.url}`]; if (v) f.verification = v; } });
     const sevCount = list => { const c = {}; list.forEach(f => { const s = (f.severity || 'info').toLowerCase(); c[s] = (c[s] || 0) + 1; }); return c; };
     const confSev = sevCount(conf), leadSev = sevCount(leads);
     const modsRan = Object.keys(results).length, modsTotal = scan.modules_total || modsRan;
@@ -504,10 +508,30 @@ body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,s
         const cvss = (f.cvss != null && f.cvss !== '') ? esc(String(f.cvss)) : '';
         const nvd = f.cve ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(f.cve)}` : '';
         const summary = esc((ev.detail || '').replace(/^nmap -sV banner → \S+\.\s*/, ''));
-        return `<details class="ag-fcard ${cls} lead"${open ? ' open' : ''}>
-          <summary class="ag-fh"><span class="ag-sev ${cls}" style="background:none;border-style:dashed"><span class="n">${cvss || esc((f.severity || 'info').slice(0, 4).toUpperCase())}</span></span><span class="title">${esc(f.name || f.cve || 'CVE lead')}</span><span class="cls" style="color:#FFAA00;border:1px dashed rgba(255,170,0,.4);background:rgba(255,170,0,.06)">version-based · unverified</span><span class="chev">▸</span></summary>
+        const vf = f.verification || null, st = vf && vf.status;
+        let chipStyle, badge, note;
+        if (st === 'verified') {
+          const method = esc(String(vf.method || '').toUpperCase());
+          const e = vf.evidence || {};
+          const tell = e.check ? `${esc(e.check)}${e.tell ? ` → ${esc(e.tell)}` : ''}` : (e.matcher ? `nuclei: ${esc(e.matcher)}` : '');
+          chipStyle = '';
+          badge = `<span class="cls" style="color:#00D4AA;border:1px solid rgba(0,212,170,.4);background:rgba(0,212,170,.07)">✓ verified${method ? ' · ' + method : ''}</span>`;
+          note = `✓ Confirmed${method ? ' by ' + method : ''}${tell ? ' — ' + tell : ''}. Actively reproduced, not just a version match.`;
+        } else if (st === 'unverifiable') {
+          chipStyle = 'background:none;border-style:dashed';
+          const reason = (vf && vf.reason) || 'manual review';
+          const why = /unclear/i.test(reason) ? 'its class could not be determined' : 'proving it would need a destructive exploit';
+          badge = `<span class="cls" style="color:#FFAA00;border:1px solid rgba(255,170,0,.5);background:rgba(255,170,0,.10)">⚠ not safely verifiable</span>`;
+          note = `⚠ Not safely verifiable remotely — ${esc(reason)}. Version match only; ${why}, so verify manually.`;
+        } else {
+          chipStyle = 'background:none;border-style:dashed';
+          badge = `<span class="cls" style="color:#FFAA00;border:1px dashed rgba(255,170,0,.4);background:rgba(255,170,0,.06)">version-based · unverified</span>`;
+          note = `⚠ Lead, not proof — matched on the version banner only${(vf && vf.reason) ? ` (${esc(vf.reason)})` : ''}. Verify before reporting.`;
+        }
+        return `<details class="ag-fcard ${cls}${st === 'verified' ? '' : ' lead'}"${open ? ' open' : ''}>
+          <summary class="ag-fh"><span class="ag-sev ${cls}" style="${chipStyle}"><span class="n">${cvss || esc((f.severity || 'info').slice(0, 4).toUpperCase())}</span></span><span class="title">${esc(f.name || f.cve || 'CVE')}</span>${badge}<span class="chev">▸</span></summary>
           <div class="ag-fb">
-            <div class="ag-kv"><span class="k">Note</span><span class="v">⚠ Lead, not proof — matched on the service's version banner only. Verify before reporting.</span></div>
+            <div class="ag-kv"><span class="k">Note</span><span class="v">${note}</span></div>
             ${f.url ? `<div class="ag-kv"><span class="k">Service</span><span class="v">${esc(f.url)}</span></div>` : ''}
             ${f.cpe ? `<div class="ag-kv"><span class="k">CPE</span><span class="v">${esc(f.cpe)}</span></div>` : ''}
             ${cvss ? `<div class="ag-kv"><span class="k">CVSS</span><span class="v">${cvss} · ${esc((f.severity || '').toLowerCase())}</span></div>` : ''}

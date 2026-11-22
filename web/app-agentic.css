@@ -184,6 +184,9 @@
 .ag-fcard.lead{border-left-color:var(--accent-amber);border-left-style:dashed}
 .ag-fh .ag-vbadge{font-family:var(--font-mono);font-size:10px;letter-spacing:.02em;color:var(--accent-amber);border:1px dashed var(--accent-amber-glow);background:rgba(255,170,0,.06);padding:3px 8px;border-radius:var(--radius-pill);flex-shrink:0;white-space:nowrap}
 .ag-lead-note{display:flex;gap:8px;align-items:flex-start;background:rgba(255,170,0,.06);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-md);padding:9px 12px;margin:10px 0 2px;font-size:12.5px;line-height:1.5;color:var(--text-secondary)}
+.ag-fh .ag-vbadge.ok{color:var(--accent-green);border-color:var(--accent-green-glow);border-style:solid;background:rgba(0,212,170,.07)}
+.ag-fh .ag-vbadge.warn{color:var(--accent-amber);border-style:solid;background:rgba(255,170,0,.10)}
+.ag-lead-note.ok{background:rgba(0,212,170,.06);border-color:var(--accent-green-glow)}
 .svc-leads{font-family:var(--font-mono);font-size:11px;color:var(--accent-amber);border:1px dashed var(--accent-amber-glow);background:rgba(255,170,0,.06);padding:1px 7px;border-radius:var(--radius-pill);cursor:pointer}
 .svc-leads:hover{background:rgba(255,170,0,.12)}
 .ag-fh{display:flex;align-items:center;gap:12px;padding:var(--space-3) var(--space-4);cursor:pointer}

@@ -8,6 +8,7 @@ modules:
   - probe
   - portscan
   - service_cve
+  - cve_verify
   - favicon_hash
   - cert_intel
   - asn_cidr

@@ -608,8 +608,12 @@ function resMergeFindings(find, conf) {
 // FINDINGS: findings + confirmed, merged & deduped (confirmed wins)
 async function resFindingsView(scanId, content, opts = {}) {
   const SEV = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
-  const [find, conf] = await Promise.all([resGrab(scanId, 'findings.jsonl'), resGrab(scanId, 'confirmed.jsonl')]);
+  const [find, conf, verifs] = await Promise.all([resGrab(scanId, 'findings.jsonl'), resGrab(scanId, 'confirmed.jsonl'), resGrab(scanId, 'verifications.jsonl')]);
   let all = resMergeFindings(find, conf);
+  // Join CVE verification status (side-file) onto any cve lead that doesn't already
+  // carry it (verified ones come pre-tagged from confirmed.jsonl).
+  const vmap = {}; (verifs || []).forEach(v => { vmap[`${v.cve}|${v.url}`] = v; });
+  all.forEach(f => { if ((f.vuln_class === 'cve' || f.cve) && !f.verification) { const v = vmap[`${f.cve}|${f.url}`]; if (v) f.verification = v; } });
   if (opts.only) all = all.filter(f => f._kind === opts.only);
   if (opts.service) all = all.filter(f => (f.url || '') === opts.service);
   all.sort((a, b) => (SEV[(a.severity || 'info').toLowerCase()] ?? 5) - (SEV[(b.severity || 'info').toLowerCase()] ?? 5));
@@ -1993,15 +1997,37 @@ function agCveCard(f) {
   const cveId = f.cve || '';
   const nvd = cveId ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(cveId)}` : '';
   const summary = esc((ev.detail || '').replace(/^nmap -sV banner → \S+\.\s*/, ''));
-  return `<div class="ag-fcard lead">
+  // Three verification tiers (from cve_verify): verified (promoted/confirmed),
+  // unverifiable (logged reason — never actively tested), or version-based lead.
+  const v = f.verification || null;
+  const status = v && v.status;
+  let frameCls, chipLead, badge, note;
+  if (status === 'verified') {
+    const method = esc(String(v.method || '').toUpperCase());
+    const e = (v.evidence) || {};
+    const tell = e.check ? `${esc(e.check)}${e.tell ? ` → “${esc(e.tell)}”` : ''}` : (e.matcher ? `nuclei: ${esc(e.matcher)}${e.matched_at ? ` @ ${esc(e.matched_at)}` : ''}` : '');
+    frameCls = cls; chipLead = '';
+    badge = `<span class="ag-vbadge ok">✓ verified${method ? ' · ' + method : ''}</span>`;
+    note = `<div class="ag-lead-note ok">✓ Confirmed${method ? ' by ' + method : ''}${tell ? ' — ' + tell : ''}. Actively reproduced, not just a version match.</div>`;
+  } else if (status === 'unverifiable') {
+    frameCls = 'lead'; chipLead = ' lead';
+    const why = /unclear/i.test(v.reason || '') ? 'its class could not be determined' : 'proving it would need a destructive exploit';
+    badge = `<span class="ag-vbadge warn">⚠ not safely verifiable</span>`;
+    note = `<div class="ag-lead-note">⚠ Not safely verifiable remotely — <b>${esc(v.reason || 'manual review')}</b>. Version match only; ${why}, so verify manually.</div>`;
+  } else {
+    frameCls = 'lead'; chipLead = ' lead';
+    badge = `<span class="ag-vbadge">version-based · unverified</span>`;
+    note = `<div class="ag-lead-note">⚠ Lead, not proof. Matched on the version banner only${(v && v.reason) ? ` (${esc(v.reason)})` : ''} — it may be patched/back-ported or spoofed. Verify before reporting.</div>`;
+  }
+  return `<div class="ag-fcard ${frameCls}">
     <div class="ag-fh">
-      <span class="ag-sev ${cls} lead"><span class="n">${cvss || sev.slice(0, 4).toUpperCase()}</span>${cvss ? ' ' + esc(sev) : ''}</span>
-      <span class="title">${esc(f.name || cveId || 'CVE lead')}</span>
-      <span class="ag-vbadge">version-based · unverified</span>
+      <span class="ag-sev ${cls}${chipLead}"><span class="n">${cvss || sev.slice(0, 4).toUpperCase()}</span>${cvss ? ' ' + esc(sev) : ''}</span>
+      <span class="title">${esc(f.name || cveId || 'CVE')}</span>
+      ${badge}
       <span class="chev">▸</span>
     </div>
     <div class="ag-fb">
-      <div class="ag-lead-note">⚠ Lead, not proof. Matched on the service's version banner only — it may be patched/back-ported or the banner spoofed. Verify before reporting.</div>
+      ${note}
       ${svc ? `<div class="ag-kv"><span class="k">Service</span><span class="v">${svc}</span></div>` : ''}
       ${cpe ? `<div class="ag-kv"><span class="k">CPE</span><span class="v">${cpe}</span></div>` : ''}
       ${cvss ? `<div class="ag-kv"><span class="k">CVSS</span><span class="v">${cvss} · ${esc(sev)}</span></div>` : ''}

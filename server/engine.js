@@ -21,6 +21,7 @@ function _loadModules() {
     urls:               './modules/urls',
     portscan:           './modules/portscan',
     service_cve:        './modules/service_cve',
+    cve_verify:         './modules/cve_verify',
     fingerprint:        './modules/fingerprint',
     content:            './modules/content',
     api_routes:         './modules/api_routes',
@@ -73,6 +74,7 @@ class ScanEngine {
     const merged = { ...moduleSettings.toOverrides(), ...(configOverrides || {}) };
     if (port) merged.targetPort = port;
     const config = getConfig(merged);
+    config.__mode = mode; // modules that gate AI (e.g. cve_verify Layer 2) read this
     const workspace = new Workspace(host);
     // Seed the target host itself so a leaf/subdomain target (or an empty passive
     // enumeration) never produces an empty chain: probe/collect/test still proceed,
