@@ -22,7 +22,10 @@ function platformKey() {
 }
 
 // ---- tiny semver (ranges like ">=1.6.0 <1.7.0") ----
-function parseV(v) { const m = String(v || '').match(/(\d+)\.(\d+)\.(\d+)/); return m ? [+m[1], +m[2], +m[3]] : null; }
+// Tolerate 1-, 2- or 3-part versions (nmap reports "7.92"), padding missing
+// components with 0. Manifest ranges stay 3-part, so only the probed version side
+// is affected.
+function parseV(v) { const m = String(v || '').match(/(\d+)(?:\.(\d+))?(?:\.(\d+))?/); return m ? [+m[1], +(m[2] || 0), +(m[3] || 0)] : null; }
 function cmpV(a, b) { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; }
 function satisfies(version, range) {
   const v = parseV(version); if (!v || !range) return false;

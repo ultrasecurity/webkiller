@@ -98,6 +98,18 @@ const TOOLS = {
     platforms: plat({ 'win32-arm64': { support: 'unsupported' } }),
     install: { kind: 'archive', repo: 'projectdiscovery/naabu', version: '2.7.0', assets: pdAsset('naabu') },
   },
+
+  // ---------- System tools (installed by the OS package manager, not auto-downloaded) ----------
+  nmap: {
+    id: 'nmap', displayName: 'nmap', homepage: 'https://nmap.org', license: 'NPSL (nmap)',
+    bin: 'nmap', version: { tested: '7.95', compatible: '>=7.80.0 <9.0.0' },
+    probe: { args: ['--version'], timeoutMs: 8000, stream: 'both', identity: 'Nmap version|nmap\\.org', version: 'Nmap version (\\d+\\.\\d+(?:\\.\\d+)?)', versionSource: 'probe' },
+    platforms: plat({ 'darwin-x64': { support: 'supported' }, 'linux-x64': { support: 'supported' }, 'linux-arm64': { support: 'supported' }, 'win32-x64': { support: 'supported' } }),
+    // nmap ships a C program plus data files (nmap-services, nmap-os-db) — not a
+    // single static binary — so it is installed via the OS package manager, not
+    // auto-downloaded like the Go tools. The UI shows this command when it's missing.
+    install: { kind: 'manual', command: 'brew install nmap' },
+  },
   nuclei: {
     id: 'nuclei', displayName: 'nuclei', homepage: 'https://github.com/projectdiscovery/nuclei', license: 'MIT',
     bin: 'nuclei', version: { tested: '3.11.1', compatible: '>=3.0.0 <4.0.0' },
