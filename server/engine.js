@@ -20,6 +20,7 @@ function _loadModules() {
     github_dork:        './modules/github_dork',
     urls:               './modules/urls',
     portscan:           './modules/portscan',
+    service_cve:        './modules/service_cve',
     fingerprint:        './modules/fingerprint',
     content:            './modules/content',
     api_routes:         './modules/api_routes',
@@ -121,6 +122,7 @@ class ScanEngine {
     if (!s.enabled || !s.apiKey) throw new Error('AI is not configured — set a provider key in Settings');
     const { runAgenticScan, TOOL_MODULES } = require('./ai/agent');
     const allowIntrusive = ['aggressive', 'full'].includes(profileName);
+    await this._preflightRoot(scanId, config, allowIntrusive && moduleSettings.isEnabled('service_cve'));
     // Drop the agent tools whose module the user disabled in Settings.
     const exclude = Object.entries(TOOL_MODULES)
       .filter(([, moduleKey]) => !moduleSettings.isEnabled(moduleKey))
@@ -212,6 +214,8 @@ class ScanEngine {
     const scanRec = this.scans.get(scanId);
     if (scanRec) scanRec.modules_total = modules.length;
 
+    await this._preflightRoot(scanId, config, modules.includes('service_cve'));
+
     const groups = this._buildGroups(modules);
 
     for (const group of groups) {
@@ -286,6 +290,33 @@ class ScanEngine {
     return result;
   }
 
+  // Acquire administrator access UPFRONT (before the scan's real work) for the
+  // one module that needs it — service_cve's nmap -O OS detection. Asking at scan
+  // start means the user is prompted once, never mid-scan, and a denial degrades
+  // cleanly to version-only instead of failing part-way through. No-op unless the
+  // user both enabled OS detection and service_cve will run.
+  async _preflightRoot(scanId, config, willRunServiceCve) {
+    if (config.__rootPreflighted) return;
+    config.__rootPreflighted = true;
+    if (!willRunServiceCve || !config.svc_cve_os_detect) return;
+    const { preflightRoot, isMac } = require('./privileged');
+    if (!isMac()) {
+      config.svc_cve_os_detect = false;
+      this._addEvent(scanId, 'warn', 'OS detection needs macOS — running version-only');
+      return;
+    }
+    this._addEvent(scanId, 'root_request', 'OS detection is on — requesting administrator access for nmap -O');
+    let res = { granted: false, canceled: false };
+    try { res = await preflightRoot(); } catch { res = { granted: false, canceled: false }; }
+    if (res.granted) {
+      config.__rootGranted = true;
+      this._addEvent(scanId, 'root_granted', 'administrator access granted — OS detection enabled');
+    } else {
+      config.svc_cve_os_detect = false;
+      this._addEvent(scanId, 'warn', res.canceled ? 'admin canceled — OS detection skipped (version-only)' : 'admin not granted — OS detection skipped (version-only)');
+    }
+  }
+
   // "Findings" must mean vulnerabilities, never surface size. Count the unique
   // vuln records (confirmed ∪ potential, deduped by class|url|param) — the same
   // merge the Findings tab renders — so a target with 10k URLs never reads as
@@ -294,7 +325,7 @@ class ScanEngine {
     try {
       const conf = workspace.readJsonl('confirmed.jsonl');
       const find = workspace.readJsonl('findings.jsonl');
-      const key = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}`;
+      const key = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}|${f.cve || ''}`;
       const seen = new Set();
       for (const f of conf) seen.add(key(f));
       for (const f of find) seen.add(key(f));

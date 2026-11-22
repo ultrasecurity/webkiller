@@ -297,6 +297,10 @@ ${[1, 2, 3, 4].map((l) => `<li>GraphQL L${l} (POST): <a href="/graphql/${l}">/gr
 
 const handler = async (req, res) => {
   try {
+    // Deliberately old/vulnerable service banners so the service_cve module
+    // (nmap -sV) detects a version and maps it to CVEs. Fake, for testing only.
+    res.setHeader('Server', 'Apache/2.2.8 (Unix)');
+    res.setHeader('X-Powered-By', 'PHP/5.3.1');
     const u = new URL(req.url, 'http://127.0.0.1');
     const p = decodeURIComponent(u.pathname);
     if (p === '/' || p === '/index.html') return html(res, 200, INDEX);

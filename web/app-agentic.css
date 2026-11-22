@@ -180,6 +180,12 @@
 .ag-sec .ct{font-family:var(--font-mono);font-size:12px;color:var(--text-muted)}
 .ag-fcard{background:var(--bg-surface);border:1px solid var(--border-subtle);border-left:3px solid var(--accent-red);border-radius:var(--radius-xl);margin-bottom:var(--space-3);overflow:hidden}
 .ag-fcard.high{border-left-color:var(--accent-high)} .ag-fcard.med{border-left-color:var(--accent-amber)} .ag-fcard.low{border-left-color:var(--accent-info)}
+/* service_cve — version-based CVE leads (unverified) must read as leads, never confirmed */
+.ag-fcard.lead{border-left-color:var(--accent-amber);border-left-style:dashed}
+.ag-fh .ag-vbadge{font-family:var(--font-mono);font-size:10px;letter-spacing:.02em;color:var(--accent-amber);border:1px dashed var(--accent-amber-glow);background:rgba(255,170,0,.06);padding:3px 8px;border-radius:var(--radius-pill);flex-shrink:0;white-space:nowrap}
+.ag-lead-note{display:flex;gap:8px;align-items:flex-start;background:rgba(255,170,0,.06);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-md);padding:9px 12px;margin:10px 0 2px;font-size:12.5px;line-height:1.5;color:var(--text-secondary)}
+.svc-leads{font-family:var(--font-mono);font-size:11px;color:var(--accent-amber);border:1px dashed var(--accent-amber-glow);background:rgba(255,170,0,.06);padding:1px 7px;border-radius:var(--radius-pill);cursor:pointer}
+.svc-leads:hover{background:rgba(255,170,0,.12)}
 .ag-fh{display:flex;align-items:center;gap:12px;padding:var(--space-3) var(--space-4);cursor:pointer}
 .ag-fh .title{flex:1;font-weight:var(--fw-semi);font-size:15px;min-width:0}
 .ag-fh .cls{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);background:var(--bg-raised);padding:3px 9px;border-radius:var(--radius-pill);flex-shrink:0}

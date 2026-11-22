@@ -7,6 +7,7 @@ modules:
   - subdomains_permute
   - probe
   - portscan
+  - service_cve
   - favicon_hash
   - cert_intel
   - asn_cidr

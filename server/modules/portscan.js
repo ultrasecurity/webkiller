@@ -40,9 +40,22 @@ class Portscan extends BaseModule {
       }
     } else if (isInstalled('nmap')) {
       this.emit('log', { msg: 'naabu not found, falling back to nmap (slower)' });
-      const targetsStr = subs.slice(0, 50).join(' ');
-      const result = await runTool(`nmap -sT -T4 --top-ports 100 ${targetsStr}`, 300);
-      items = (result.stdout || '').split('\n').filter(l => l.includes('/tcp') || l.includes('/udp'));
+      const targetsStr = subs.slice(0, 50).map(s => s.split(':')[0]).join(' ');
+      const portSpec = this.config.ports ? `-p ${this.config.ports}` : `--top-ports ${this.config.top_ports || 100}`;
+      const result = await runTool(`nmap -sT -T4 -Pn ${portSpec} -oG - ${targetsStr}`, 300);
+      // Parse grepable output into host/port records so ports.jsonl is actually
+      // populated (the old path only built display strings, leaving ports.jsonl
+      // empty — which silently starved service_cve on nmap-only hosts).
+      for (const line of (result.stdout || '').split('\n')) {
+        const hm = /^Host:\s+(\S+)/.exec(line);
+        const pm = line.match(/Ports:\s*(.+)$/);
+        if (!hm || !pm) continue;
+        const host = hm[1];
+        for (const seg of pm[1].split(',')) {
+          const m = /\s*(\d+)\/open\/(tcp|udp)/.exec(seg);
+          if (m) { items.push(`${host}:${m[1]}`); results.push({ host, port: parseInt(m[1], 10), protocol: m[2] }); }
+        }
+      }
     } else {
       return new ModuleResult({
         module: Portscan.moduleName,

@@ -598,7 +598,7 @@ async function resEndpointsView(scanId, content) {
 // Merge findings.jsonl + confirmed.jsonl, dedupe by endpoint/param/class.
 // Single source of truth so the Leads badge and the rendered list always agree.
 function resMergeFindings(find, conf) {
-  const key = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}`;
+  const key = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}|${f.cve || ''}`;
   const map = new Map();
   (conf || []).forEach(f => map.set(key(f), { ...f, _kind: 'confirmed' }));
   (find || []).forEach(f => { const k = key(f); if (!map.has(k)) map.set(k, { ...f, _kind: f.type === 'dast_confirmed' ? 'confirmed' : 'potential' }); });
@@ -611,20 +611,24 @@ async function resFindingsView(scanId, content, opts = {}) {
   const [find, conf] = await Promise.all([resGrab(scanId, 'findings.jsonl'), resGrab(scanId, 'confirmed.jsonl')]);
   let all = resMergeFindings(find, conf);
   if (opts.only) all = all.filter(f => f._kind === opts.only);
+  if (opts.service) all = all.filter(f => (f.url || '') === opts.service);
   all.sort((a, b) => (SEV[(a.severity || 'info').toLowerCase()] ?? 5) - (SEV[(b.severity || 'info').toLowerCase()] ?? 5));
-  if (!all.length) { content.innerHTML = resEmpty(opts.emptyMsg || 'No findings — the surface looked clean, or active checks were off.'); return; }
+  if (!all.length) { content.innerHTML = resEmpty(opts.service ? `No leads for ${esc(opts.service)}.` : (opts.emptyMsg || 'No findings — the surface looked clean, or active checks were off.')); return; }
   const nConf = all.filter(f => f._kind === 'confirmed').length;
   const cards = all.map(f => `<div data-hay="${esc((String(f.name || '') + ' ' + (f.url || '') + ' ' + (f.vuln_class || '')).toLowerCase())}" data-kind="${f._kind}">${agFindingCard(f)}</div>`).join('');
   const bar = opts.only ? '' : `
       <button class="res-chip on" data-fk="all">All <span class="n">${all.length}</span></button>
       <button class="res-chip" data-fk="confirmed">Confirmed <span class="n">${nConf}</span></button>
       <button class="res-chip" data-fk="potential">Potential <span class="n">${all.length - nConf}</span></button>`;
+  const svcNote = opts.service ? `<button class="res-chip on" data-svcclear>service: ${esc(opts.service)} ✕</button>` : '';
   content.innerHTML = `
     <div class="res-bar">
       <div class="res-search"><span class="ic">⌕</span><input data-search placeholder="Filter findings…"></div>
-      ${bar}
+      ${svcNote}${bar}
     </div>
     <div class="res-finds">${cards}</div>`;
+  const clr = content.querySelector('[data-svcclear]');
+  if (clr) clr.addEventListener('click', () => resFindingsView(scanId, content, { only: opts.only, emptyMsg: opts.emptyMsg }));
   const apply = resWireSearch(content);
   content.querySelectorAll('.ag-fh').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('open')));
   content.querySelectorAll('.ag-poc-actions .btn[data-copy]').forEach(b => b.addEventListener('click', () => { try { navigator.clipboard.writeText(b.dataset.copy); const o = b.textContent; b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = o, 1200); } catch {} }));
@@ -637,14 +641,47 @@ async function resFindingsView(scanId, content, opts = {}) {
   }));
 }
 
-// OSINT: whois + grouped DNS records
-async function resOsintView(scanId, content) {
-  const recs = await resGrab(scanId, 'osint.jsonl');
-  if (!recs || !recs.length) { content.innerHTML = resEmpty('No OSINT collected — run the DNS OSINT module.'); return; }
+// OSINT / intel: services (nmap -sV → CVE leads), whois, DNS, favicon/cert/ASN.
+// onJumpToLeads(service) — optional; a "N CVE leads" chip deep-links to the Leads
+// tab filtered to that service.
+async function resOsintView(scanId, content, onJumpToLeads) {
+  const [recsRaw, services, findsForSvc] = await Promise.all([
+    resGrab(scanId, 'osint.jsonl'), resGrab(scanId, 'services.jsonl'), resGrab(scanId, 'findings.jsonl'),
+  ]);
+  const recs = recsRaw || [];
+  const svcs = services || [];
+  if (!recs.length && !svcs.length) { content.innerHTML = resEmpty('No OSINT or service intel collected — run the DNS OSINT, port scan or Service CVEs modules.'); return; }
   const whois = recs.find(r => r.type === 'whois');
   const dns = recs.filter(r => r.type === 'dns');
   const favicons = recs.filter(r => r.type === 'favicon');
   let html = '<div class="res-osint">';
+
+  // SERVICES panel — service versions + per-service version-based CVE lead counts.
+  if (svcs.length) {
+    const cveByUrl = {};
+    (findsForSvc || []).forEach(f => { if ((f.vuln_class === 'cve' || f.cve) && f.url) (cveByUrl[f.url] = cveByUrl[f.url] || []).push(f); });
+    const SHORT = { critical: 'crit', high: 'high', medium: 'med', low: 'low', info: 'info' };
+    const rows = svcs.map(s => {
+      if (s.kind === 'os') {
+        const cpe = (s.cpe && s.cpe[0]) ? `<br><code>${esc(s.cpe[0])}</code>` : '';
+        const leads = cveByUrl[s.host] || [];
+        const chip = leads.length ? ` · <span class="svc-leads" data-svc-leads="${esc(s.host)}">${leads.length} CVE lead${leads.length > 1 ? 's' : ''}</span>` : '';
+        return `<div class="k">OS</div><div class="v"><b>${esc(s.host || '')}</b> · ${esc(s.os || '?')}${s.accuracy ? ` <span class="mut">${esc(String(s.accuracy))}% match</span>` : ''}${chip}${cpe}</div>`;
+      }
+      const url = `${s.host}:${s.port}`;
+      const leads = cveByUrl[url] || [];
+      const sev = {}; leads.forEach(l => { const k = (l.severity || 'info').toLowerCase(); sev[k] = (sev[k] || 0) + 1; });
+      const sevStr = ['critical', 'high', 'medium', 'low'].filter(k => sev[k]).map(k => `${sev[k]} ${SHORT[k]}`).join(' · ');
+      const chip = leads.length
+        ? ` · <span class="svc-leads" data-svc-leads="${esc(url)}">${leads.length} CVE lead${leads.length > 1 ? 's' : ''}</span>${sevStr ? ` <span class="mut">CVSS: ${sevStr}</span>` : ''}`
+        : ' <span class="mut">· no CVE leads</span>';
+      const ver = [s.product, s.version].filter(Boolean).join(' ') || s.service || '?';
+      const cpe = (s.cpe && s.cpe.length) ? `<br><code>${esc(s.cpe[0])}</code>` : '';
+      return `<div class="k">${esc((s.service || 'svc').toUpperCase()).slice(0, 6)}</div><div class="v"><b>${esc(url)}</b> · ${esc(ver)}${s.extrainfo ? ` <span class="mut">${esc(s.extrainfo)}</span>` : ''}${chip}${cpe}</div>`;
+    }).join('');
+    html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">SVC</span> Service versions <span class="mut">· nmap -sV · CVE leads are version-based — unverified. See Leads.</span></div><div class="res-dns">${rows}</div></div>`;
+  }
+
   if (dns.length) {
     const rows = dns.map(d => `<div class="k">${esc(d.record_type)}</div><div class="v">${(d.records || []).map(x => esc(typeof x === 'object' ? JSON.stringify(x) : String(x))).join('<br>')}</div>`).join('');
     html += `<div class="res-panel"><div class="res-panel-h"><span class="rt">DNS</span> Records</div><div class="res-dns">${rows}</div></div>`;
@@ -671,6 +708,7 @@ async function resOsintView(scanId, content) {
   }
   html += '</div>';
   content.innerHTML = html;
+  content.querySelectorAll('[data-svc-leads]').forEach(el => el.addEventListener('click', () => { if (onJumpToLeads) onJumpToLeads(el.dataset.svcLeads); }));
 }
 
 async function renderResults(scanId) {
@@ -1344,7 +1382,7 @@ function resEmptyMsg(m) { return `<div class="res-empty">${esc(m)}</div>`; }
 
 /* ── HELPERS ──────────────────────── */
 
-function esc(s) { const d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+function esc(s) { const d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
 function pct(scan) { return scan.modules_total ? Math.round((scan.modules_done / scan.modules_total) * 100) : 0; }
 
@@ -1930,12 +1968,12 @@ async function renderAgenticResults(scanId, scan) {
   $$('.ag-poc-actions .btn[data-copy]').forEach(b => b.addEventListener('click', () => { try { navigator.clipboard.writeText(b.dataset.copy); const o = b.textContent; b.textContent = 'Copied ✓'; setTimeout(() => b.textContent = o, 1200); } catch {} }));
   // Recon fold reuses the shared rich views (same as the classic Results tabs).
   const reconView = $('#agReconView');
-  const loadRecon = k => {
+  const loadRecon = (k, opts) => {
     $$('#agReconTabs button').forEach(b => b.classList.toggle('on', b.dataset.rv === k));
     if (k === 'hosts') resHostsView(scanId, reconView);
     else if (k === 'endpoints') resEndpointsView(scanId, reconView);
-    else if (k === 'osint') resOsintView(scanId, reconView);
-    else if (k === 'leads') resFindingsView(scanId, reconView, { only: 'potential', emptyMsg: 'No unconfirmed leads.' });
+    else if (k === 'osint') resOsintView(scanId, reconView, (svc) => loadRecon('leads', { service: svc }));
+    else if (k === 'leads') resFindingsView(scanId, reconView, { only: 'potential', emptyMsg: 'No unconfirmed leads.', service: opts && opts.service });
   };
   $$('#agReconTabs button').forEach(b => b.addEventListener('click', () => loadRecon(b.dataset.rv)));
   loadRecon(leads && !conf.length ? 'leads' : 'hosts');
@@ -1943,7 +1981,38 @@ async function renderAgenticResults(scanId, scan) {
   const aiBtn = $('#agAiBtn'); if (aiBtn) aiBtn.addEventListener('click', () => agAiReport(scanId, aiBtn));
 }
 
+// Version-based CVE leads render distinctly from reproduced findings: a dashed
+// (non-filled) severity chip, a dashed amber card frame, a "version-based ·
+// unverified" badge, a "lead, not proof" note, and NO proof-of-concept block.
+// This is the trust boundary — a version match is a lead, never confirmation.
+function agCveCard(f) {
+  const sev = (f.severity || 'info').toLowerCase(), cls = agSevClass(sev);
+  const ev = f.evidence || {};
+  const svc = esc(f.url || ''), cpe = esc(f.cpe || '');
+  const cvss = (f.cvss !== undefined && f.cvss !== null && f.cvss !== '') ? esc(String(f.cvss)) : '';
+  const cveId = f.cve || '';
+  const nvd = cveId ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(cveId)}` : '';
+  const summary = esc((ev.detail || '').replace(/^nmap -sV banner → \S+\.\s*/, ''));
+  return `<div class="ag-fcard lead">
+    <div class="ag-fh">
+      <span class="ag-sev ${cls} lead"><span class="n">${cvss || sev.slice(0, 4).toUpperCase()}</span>${cvss ? ' ' + esc(sev) : ''}</span>
+      <span class="title">${esc(f.name || cveId || 'CVE lead')}</span>
+      <span class="ag-vbadge">version-based · unverified</span>
+      <span class="chev">▸</span>
+    </div>
+    <div class="ag-fb">
+      <div class="ag-lead-note">⚠ Lead, not proof. Matched on the service's version banner only — it may be patched/back-ported or the banner spoofed. Verify before reporting.</div>
+      ${svc ? `<div class="ag-kv"><span class="k">Service</span><span class="v">${svc}</span></div>` : ''}
+      ${cpe ? `<div class="ag-kv"><span class="k">CPE</span><span class="v">${cpe}</span></div>` : ''}
+      ${cvss ? `<div class="ag-kv"><span class="k">CVSS</span><span class="v">${cvss} · ${esc(sev)}</span></div>` : ''}
+      ${cveId ? `<div class="ag-kv"><span class="k">CVE</span><span class="v"><a href="${nvd}" target="_blank" rel="noopener">${esc(cveId)} ↗</a></span></div>` : ''}
+      ${summary ? `<div class="ag-kv"><span class="k">Summary</span><span class="v" style="white-space:normal;word-break:normal">${summary}</span></div>` : ''}
+    </div>
+  </div>`;
+}
+
 function agFindingCard(f) {
+  if (f.vuln_class === 'cve' || f.cve) return agCveCard(f);
   const sev = (f.severity || 'info').toLowerCase(), cls = agSevClass(sev);
   const ev = f.evidence || {};
   const url = esc(f.url || ''), param = ev.param ? esc(ev.param) : '';

@@ -469,7 +469,7 @@ body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,s
     const params = readLines('params.txt');
     const hosts = readJsonl('hosts.jsonl');
     // Merge findings exactly like the app's results view: confirmed wins, rest are leads.
-    const fkey = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}`;
+    const fkey = f => `${String(f.vuln_class || f.name || '').toLowerCase()}|${f.url || ''}|${(f.evidence && f.evidence.param) || ''}|${f.cve || ''}`;
     const fmap = new Map();
     confirmed.forEach(f => fmap.set(fkey(f), { ...f, _kind: 'confirmed' }));
     findings.forEach(f => { const k = fkey(f); if (!fmap.has(k)) fmap.set(k, { ...f, _kind: (f.type === 'dast_confirmed' || f.type === 'agent_confirmed') ? 'confirmed' : 'potential' }); });
@@ -497,6 +497,24 @@ body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,s
     };
     const card = (f, open) => {
       const cls = sevCls(f.severity), ev = f.evidence || {};
+      // Version-based CVE leads render like the in-app agCveCard: dashed (non-filled)
+      // severity chip, a "version-based · unverified" badge, a "lead, not proof"
+      // note, and NO proof-of-concept block — never let them read as confirmed.
+      if (f.vuln_class === 'cve') {
+        const cvss = (f.cvss != null && f.cvss !== '') ? esc(String(f.cvss)) : '';
+        const nvd = f.cve ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(f.cve)}` : '';
+        const summary = esc((ev.detail || '').replace(/^nmap -sV banner → \S+\.\s*/, ''));
+        return `<details class="ag-fcard ${cls} lead"${open ? ' open' : ''}>
+          <summary class="ag-fh"><span class="ag-sev ${cls}" style="background:none;border-style:dashed"><span class="n">${cvss || esc((f.severity || 'info').slice(0, 4).toUpperCase())}</span></span><span class="title">${esc(f.name || f.cve || 'CVE lead')}</span><span class="cls" style="color:#FFAA00;border:1px dashed rgba(255,170,0,.4);background:rgba(255,170,0,.06)">version-based · unverified</span><span class="chev">▸</span></summary>
+          <div class="ag-fb">
+            <div class="ag-kv"><span class="k">Note</span><span class="v">⚠ Lead, not proof — matched on the service's version banner only. Verify before reporting.</span></div>
+            ${f.url ? `<div class="ag-kv"><span class="k">Service</span><span class="v">${esc(f.url)}</span></div>` : ''}
+            ${f.cpe ? `<div class="ag-kv"><span class="k">CPE</span><span class="v">${esc(f.cpe)}</span></div>` : ''}
+            ${cvss ? `<div class="ag-kv"><span class="k">CVSS</span><span class="v">${cvss} · ${esc((f.severity || '').toLowerCase())}</span></div>` : ''}
+            ${f.cve ? `<div class="ag-kv"><span class="k">CVE</span><span class="v"><a href="${nvd}">${esc(f.cve)}</a></span></div>` : ''}
+            ${summary ? `<div class="ag-kv"><span class="k">Summary</span><span class="v">${summary}</span></div>` : ''}
+          </div></details>`;
+      }
       return `<details class="ag-fcard ${cls}${f._kind === 'potential' ? ' lead' : ''}"${open ? ' open' : ''}>
         <summary class="ag-fh"><span class="ag-sev ${cls}"><span class="n">${esc((f.severity || 'info').slice(0, 4).toUpperCase())}</span></span><span class="title">${esc(f.name || f.vuln_class || 'Finding')}</span>${f.vuln_class ? `<span class="cls">${esc(f.vuln_class)}</span>` : ''}<span class="chev">▸</span></summary>
         <div class="ag-fb">

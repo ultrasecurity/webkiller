@@ -144,4 +144,4 @@ async function batchAsync(items, concurrency, fn) {
   return results;
 }
 
-module.exports = { runTool, runToolLines, StreamRunner, splitCmd, batchAsync, killActive };
+module.exports = { runTool, runToolLines, StreamRunner, splitCmd, batchAsync, killActive, track };

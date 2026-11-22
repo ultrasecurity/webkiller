@@ -25,6 +25,8 @@ const TOOL_MODULES = {
   dork_github:          'github_dork',
   collect_urls:         'urls',
   fingerprint_tech:     'fingerprint',
+  scan_ports:           'portscan',
+  scan_service_cves:    'service_cve',
   crawl_content:        'content',
   discover_api:         'api_routes',
   js_recon:             'jsrecon',
@@ -63,6 +65,8 @@ const TOOL_DESC = {
   dork_github:          'Search public GitHub code for the target domain/brand next to secret keywords, surfacing leaked keys and internal endpoints (needs a configured token).',
   collect_urls:         'Collect URLs/endpoints for the live hosts (archives, crawl).',
   fingerprint_tech:     'Fingerprint technologies/servers on the live hosts.',
+  scan_ports:           'Port-scan the live hosts (naabu/nmap) to find open ports — prerequisite for service-version detection.',
+  scan_service_cves:    'Run nmap -sV on the open ports to detect service versions, then map each version (CPE) to known CVEs via NVD. Produces VERSION-BASED LEADS (unverified), not confirmed vulns (intrusive). Run scan_ports first.',
   crawl_content:        'Discover content/paths on the live hosts.',
   discover_api:         'Find an OpenAPI/Swagger spec and expand its documented REST paths + params into testable URLs.',
   js_recon:             'Analyze JavaScript for endpoints and secrets.',
@@ -101,13 +105,14 @@ const ARTIFACTS = {
 };
 
 const INTRUSIVE = new Set([
+  'scan_service_cves',
   'confirm_xss', 'confirm_sqli', 'confirm_ssti', 'confirm_lfi', 'confirm_ssrf', 'confirm_xxe', 'confirm_deser', 'confirm_jwt',
   'confirm_massassign', 'confirm_nosqli', 'confirm_cors', 'confirm_openredirect', 'confirm_protopp', 'confirm_graphql',
   'confirm_access', 'confirm_secrets', 'confirm_bypass403', 'deep_scan',
 ]);
 
 // Finding-producing engine modules, for the post-agent coverage sweep (engine.js).
-const CONFIRM_MODULES = ['vuln_signal', 'vuln_confirm', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'authz_probe', 'bypass_403', 'secret_verify'];
+const CONFIRM_MODULES = ['service_cve', 'vuln_signal', 'vuln_confirm', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'authz_probe', 'bypass_403', 'secret_verify'];
 
 function buildTools({ allowIntrusive = false, exclude = [] } = {}) {
   const ex = new Set(exclude); // prod-safe: drop loud/active modules (ffuf brute, full nuclei) by friendly name
