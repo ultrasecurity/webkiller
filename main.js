@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const { fixPath } = require('./electron/fix-path');
 const { startServer, stopServer } = require('./server/index');
 const { registerIpcHandlers } = require('./electron/ipc-handlers');
 const { isSetupComplete, getWebkillerHome } = require('./electron/paths');
@@ -33,6 +34,9 @@ async function createWindow(port) {
 let serverPort = null;
 
 async function bootstrap() {
+  // Before anything probes for tools: a GUI launch has a minimal PATH, so align
+  // it with the login shell or Homebrew/system tools stay invisible to scans.
+  fixPath();
   getWebkillerHome();
   registerIpcHandlers();
 
