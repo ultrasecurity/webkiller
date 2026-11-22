@@ -45,13 +45,18 @@ class ServiceCve extends BaseModule {
 
     const maxHosts = Math.max(1, parseInt(this.config.svc_cve_max_hosts, 10) || 15);
     const maxPerCpe = Math.max(1, Math.min(15, parseInt(this.config.svc_cve_max_per_cpe, 10) || 5));
-    const osDetect = !!this.config.svc_cve_os_detect && !!this.config.__rootGranted;
+    // How the engine's pre-flight decided we can elevate (set in engine._preflightRoot):
+    // 'caps' (Linux, no prompt), 'osascript' (mac, must be granted), 'pkexec' (Linux, lazy prompt).
+    const osMethod = this.config.__osElevation || 'none';
+    const osGranted = osMethod === 'caps' || osMethod === 'pkexec' || (osMethod === 'osascript' && this.config.__osascriptGranted);
+    const osDetect = !!this.config.svc_cve_os_detect && osGranted;
     const nmapBin = toolPath('nmap') || 'nmap';
 
     const services = [];
     const leads = [];
     const cveCache = new Map(); // cpe23 -> [cve] — dedupe NVD calls within a scan
     this._lastNvd = 0;
+    this._osGaveUp = false; // once the user declines an elevation prompt, stop re-prompting for later hosts
     let hostCount = 0;
 
     for (const [host, portSet] of byHost) {
@@ -64,7 +69,7 @@ class ServiceCve extends BaseModule {
       const ports = [...portSet].sort((a, b) => a - b).slice(0, 50).join(',');
       this.emit('log', { msg: `nmap -sV${osDetect ? ' -O' : ''} ${host} :${ports}` });
 
-      const xml = await this._runNmap(nmapBin, host, ports, osDetect);
+      const xml = await this._runNmap(nmapBin, host, ports, (osDetect && !this._osGaveUp) ? osMethod : null);
       if (!xml) continue;
       const parsed = this._parseNmapXml(xml);
 
@@ -101,16 +106,32 @@ class ServiceCve extends BaseModule {
     return new ModuleResult({ module: ServiceCve.moduleName, items, records: services, toolUsed: 'nmap' });
   }
 
-  async _runNmap(bin, host, ports, osDetect) {
-    const base = `${bin} -sV -Pn -T4 -oX - -p ${ports} ${host}`;
-    if (osDetect) {
-      const privCmd = `${bin} -sV -O -Pn -T4 -oX - -p ${ports} ${host}`;
-      const r = await runPrivileged(privCmd, 240);
-      if (r.ok && r.stdout) return r.stdout;
-      this.emit('log', { msg: r.canceled ? 'OS detection auth canceled — version-only' : 'privileged nmap failed — version-only' });
-      // fall through to unprivileged -sV
+  // method: null = unprivileged -sV; 'caps' = nmap --privileged -O (Linux, no
+  // prompt); 'osascript'/'pkexec' = nmap -O via the privileged runner (argv, no
+  // shell). --host-timeout bounds each host so an un-killable privileged nmap
+  // can't outlive the scan.
+  async _runNmap(bin, host, ports, method) {
+    const common = ['-sV', '-Pn', '-T4', '--host-timeout', '90s', '-oX', '-', '-p', ports, host];
+    if (method) {
+      const osArgs = ['-O', ...common];
+      if (method === 'caps') {
+        // Binary carries cap_net_raw — run directly (own euid) with --privileged.
+        const res = await runTool(`${bin} --privileged ${osArgs.join(' ')}`, 240);
+        if (res.returncode === 0 && res.stdout) return res.stdout;
+        this.emit('log', { msg: 'capability-based nmap -O failed — version-only' });
+      } else {
+        const r = await runPrivileged(bin, osArgs, { timeout: 240 });
+        if (r.ok && r.stdout) return r.stdout;
+        // On cancel, stop prompting for the remaining hosts (pkexec has no cache, so
+        // otherwise a multi-host scan could throw one dialog per host).
+        if (r.canceled) this._osGaveUp = true;
+        this.emit('log', { msg: r.canceled ? 'OS detection declined — version-only for the rest of this scan' : 'privileged nmap -O failed — version-only' });
+        // On a privileged TIMEOUT the elevated nmap may still be running; don't
+        // double-hit the same host with a second (unprivileged) scan.
+        if (r.timedOut) return '';
+      }
     }
-    const res = await runTool(base, 180);
+    const res = await runTool(`${bin} ${common.join(' ')}`, 180);
     return res.stdout || '';
   }
 

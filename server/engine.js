@@ -299,22 +299,42 @@ class ScanEngine {
     if (config.__rootPreflighted) return;
     config.__rootPreflighted = true;
     if (!willRunServiceCve || !config.svc_cve_os_detect) return;
-    const { preflightRoot, isMac } = require('./privileged');
-    if (!isMac()) {
-      config.svc_cve_os_detect = false;
-      this._addEvent(scanId, 'warn', 'OS detection needs macOS — running version-only');
+
+    const priv = require('./privileged');
+    let nmapBin = null;
+    try { nmapBin = require('./registry').toolPath('nmap'); } catch { /* bare name → probe decides */ }
+    const probe = priv.probeElevation(nmapBin);
+    config.__osElevation = probe.method; // 'caps' | 'osascript' | 'pkexec' | 'none'
+
+    if (probe.method === 'caps') {
+      // Linux binary already carries cap_net_raw → no prompt; nmap runs with --privileged.
+      this._addEvent(scanId, 'root_granted', 'OS detection via nmap capabilities — no prompt needed');
       return;
     }
-    this._addEvent(scanId, 'root_request', 'OS detection is on — requesting administrator access for nmap -O');
-    let res = { granted: false, canceled: false };
-    try { res = await preflightRoot(); } catch { res = { granted: false, canceled: false }; }
-    if (res.granted) {
-      config.__rootGranted = true;
-      this._addEvent(scanId, 'root_granted', 'administrator access granted — OS detection enabled');
-    } else {
-      config.svc_cve_os_detect = false;
-      this._addEvent(scanId, 'warn', res.canceled ? 'admin canceled — OS detection skipped (version-only)' : 'admin not granted — OS detection skipped (version-only)');
+    if (probe.method === 'pkexec') {
+      // pkexec prompts per call (no cache), so an upfront prompt would just be a
+      // wasted extra dialog — service_cve prompts lazily when it runs.
+      this._addEvent(scanId, 'root_request', 'OS detection will ask for administrator access (polkit) when the service scan runs');
+      return;
     }
+    if (probe.method === 'osascript') {
+      // macOS caches the auth ~5 min, so priming it upfront usually means one prompt
+      // and lets a decline degrade cleanly before the scan does real work.
+      this._addEvent(scanId, 'root_request', 'OS detection is on — requesting administrator access for nmap -O');
+      let res = { granted: false, canceled: false };
+      try { res = await priv.preflightMac(); } catch { res = { granted: false, canceled: false }; }
+      if (res.granted) {
+        config.__osascriptGranted = true;
+        this._addEvent(scanId, 'root_granted', 'administrator access granted — OS detection enabled');
+      } else {
+        config.svc_cve_os_detect = false;
+        this._addEvent(scanId, 'warn', res.canceled ? 'admin canceled — OS detection skipped (version-only)' : 'admin not granted — OS detection skipped (version-only)');
+      }
+      return;
+    }
+    // method 'none' — can't elevate on this platform/setup; degrade + surface the hint.
+    config.svc_cve_os_detect = false;
+    this._addEvent(scanId, 'warn', `${probe.note || 'OS detection unavailable — running version-only'}${probe.setupHint ? ` · ${probe.setupHint}` : ''}`);
   }
 
   // "Findings" must mean vulnerabilities, never surface size. Count the unique

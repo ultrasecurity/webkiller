@@ -254,6 +254,11 @@ const CAPABILITIES = {
       { dep: 'npcap', platforms: ['win32-x64'], severity: 'degrades', degradedMode: 'connect-scan without Npcap' },
       { dep: 'libpcap', platforms: ['linux-x64', 'linux-arm64'], severity: 'degrades' }],
   },
+  service_cve: {
+    primary: 'nmap',
+    requires: [{ dep: 'root', platforms: ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64'], severity: 'degrades', degradedMode: 'version-only (no OS detection) without root' },
+      { dep: 'npcap', platforms: ['win32-x64'], severity: 'degrades', degradedMode: 'version-only without Npcap' }],
+  },
   urls: { primary: 'gau', fallbacks: ['katana', 'builtin'] },
   content: { primary: 'ffuf', fallbacks: ['builtin'] },
   params: { primary: 'arjun', fallbacks: ['builtin'] },
