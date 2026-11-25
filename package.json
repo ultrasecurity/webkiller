@@ -35,7 +35,7 @@
           ]
         }
       ],
-      "icon": "build/icon.icns",
+      "icon": "build/icon.png",
       "category": "public.app-category.developer-tools",
       "entitlements": "build/entitlements.mac.plist",
       "hardenedRuntime": true,
@@ -44,13 +44,15 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
-            "x64"
+            "x64",
+            "ia32",
+            "arm64"
           ]
         }
       ],
-      "icon": "build/icon.ico",
+      "icon": "build/icon.png",
       "signAndEditExecutable": false,
       "sign": false
     },
