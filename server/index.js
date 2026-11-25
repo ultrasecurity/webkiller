@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const { ScanEngine } = require('./engine');
-const { checkAll, TOOLS, clearCache, toolsForModule, whichSync } = require('./registry');
+const { checkAll, TOOLS, clearCache, toolsForModule, whichSync, warmDetections } = require('./registry');
 const { listProfiles, loadProfile, OUTPUT_DIR } = require('./config');
 const { MODULE_META } = require('./module_meta');
 const moduleSettings = require('./module_settings');
@@ -18,6 +18,26 @@ let engine = null;
 
 function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Which package managers this machine has, so the UI only offers real install
+// options. Each check spawns `which`, and the answer never changes during a
+// session — memoize it so /api/modules doesn't re-probe installers every request.
+let _platformInfo = null;
+function platformInfo() {
+  if (!_platformInfo) {
+    _platformInfo = {
+      os: process.platform,
+      installers: {
+        brew: !!whichSync('brew'),
+        go: !!whichSync('go'),
+        apt: !!(whichSync('apt-get') || whichSync('apt')),
+        pipx: !!whichSync('pipx'),
+        pip: !!(whichSync('pip3') || whichSync('pip')),
+      },
+    };
+  }
+  return _platformInfo;
 }
 
 function findFreePort(preferred = 8443) {
@@ -247,19 +267,7 @@ function setupRoutes(app) {
         enabled: st.enabled[m.key] !== false,
       };
     });
-    // What this machine can actually install with, so the UI only offers real
-    // options (e.g. brew on a Mac that has it) instead of a generic list.
-    const platform = {
-      os: process.platform,
-      installers: {
-        brew: !!whichSync('brew'),
-        go: !!whichSync('go'),
-        apt: !!(whichSync('apt-get') || whichSync('apt')),
-        pipx: !!whichSync('pipx'),
-        pip: !!(whichSync('pip3') || whichSync('pip')),
-      },
-    };
-    res.json({ modules, global: moduleSettings.globals(), defaults: moduleSettings.GLOBAL_DEFAULTS, platform, uaPresets: userAgents.PRESETS, uaRandom: userAgents.RANDOM });
+    res.json({ modules, global: moduleSettings.globals(), defaults: moduleSettings.GLOBAL_DEFAULTS, platform: platformInfo(), uaPresets: userAgents.PRESETS, uaRandom: userAgents.RANDOM });
   });
 
   // Persist { global, modules, enabled } (shallow-merged with what's stored).
@@ -621,6 +629,7 @@ async function startServer(preferredPort = 8443) {
   return new Promise((resolve, reject) => {
     server = app.listen(port, '127.0.0.1', () => {
       console.log(`WebKiller server on http://127.0.0.1:${port}`);
+      warmDetections(); // probe tools in the background so the first scan-page nav is instant
       resolve(port);
     });
     server.on('error', reject);

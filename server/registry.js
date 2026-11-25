@@ -27,14 +27,29 @@ const _cache = {};
 // Probe-based detection is the single source of truth. registry delegates to it
 // for every tool in the manifest; tools not in the manifest (nmap, puredns, gf,
 // interactsh-client, gotator) still fall back to a plain PATH lookup.
-let _det = null; let _detTs = 0;
+let _det = null; let _detTs = 0; let _detRefreshing = false;
+// Tool detection is expensive — it spawns every managed tool with `--version`
+// (~1–4s cold). Installs/uninstalls call clearCache(), so a long TTL is safe: it
+// only guards against tools installed out-of-band in a terminal. Stale results
+// are served immediately and re-probed off the request path, so a page that needs
+// module status (New Scan, Settings) never blocks on a re-probe.
+const DET_TTL_MS = 10 * 60 * 1000;
+function _probeDetections() {
+  try { const { detectAll, buildContext } = require('./tools/detect'); _det = detectAll(buildContext()); }
+  catch { if (!_det) _det = {}; }
+  _detTs = Date.now();
+}
 function detections() {
-  if (!_det || Date.now() - _detTs > 60000) {
-    try { const { detectAll, buildContext } = require('./tools/detect'); _det = detectAll(buildContext()); _detTs = Date.now(); }
-    catch { _det = {}; }
+  if (!_det) { _probeDetections(); return _det; } // cold: block once (warmed at startup → rare)
+  if (Date.now() - _detTs > DET_TTL_MS && !_detRefreshing) {
+    _detRefreshing = true; // stale: serve what we have, refresh in the background
+    setTimeout(() => { try { _probeDetections(); } finally { _detRefreshing = false; } }, 0);
   }
   return _det;
 }
+// Build the detection cache ahead of the first request (called once the server is
+// listening) so the first New Scan / Settings navigation is instant, not a ~2–4s probe.
+function warmDetections() { setImmediate(() => { try { if (!_det) _probeDetections(); } catch { /* best effort */ } }); }
 function manifestTools() {
   try { return require('./tools/manifest').TOOLS; } catch { return {}; }
 }
@@ -96,4 +111,4 @@ function clearCache() {
   _det = null; _detTs = 0; // force a fresh probe pass on next lookup
 }
 
-module.exports = { TOOLS, isInstalled, checkAll, toolsForModule, missingForModule, clearCache, whichSync, toolPath, detections };
+module.exports = { TOOLS, isInstalled, checkAll, toolsForModule, missingForModule, clearCache, whichSync, toolPath, detections, warmDetections };
