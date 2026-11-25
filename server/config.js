@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const yaml = require('js-yaml');
+const { DEFAULT_UA } = require('./user_agents');
 
 function getBaseDir() {
   if (process.resourcesPath && fs.existsSync(path.join(process.resourcesPath, 'app.asar.unpacked'))) {
@@ -19,7 +20,7 @@ const DEFAULT_CONFIG = {
   concurrency: 20,
   rate_limit: 50,
   timeout: 30,
-  user_agent: 'WebKiller/2.0 (Recon; +authorized-security-testing)',
+  user_agent: DEFAULT_UA,
   bug_bounty_header: '',
   resolvers_file: '',
   notify: { enabled: false, webhook: '' },

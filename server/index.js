@@ -10,6 +10,7 @@ const moduleSettings = require('./module_settings');
 const { isValidTarget, normalizeTarget, safeBasename } = require('./validate');
 const aiSettings = require('./ai/settings');
 const { PRESETS, SUGGESTED_MODELS } = require('./ai/provider');
+const userAgents = require('./user_agents');
 
 let app = null;
 let server = null;
@@ -258,7 +259,7 @@ function setupRoutes(app) {
         pip: !!(whichSync('pip3') || whichSync('pip')),
       },
     };
-    res.json({ modules, global: moduleSettings.globals(), defaults: moduleSettings.GLOBAL_DEFAULTS, platform });
+    res.json({ modules, global: moduleSettings.globals(), defaults: moduleSettings.GLOBAL_DEFAULTS, platform, uaPresets: userAgents.PRESETS, uaRandom: userAgents.RANDOM });
   });
 
   // Persist { global, modules, enabled } (shallow-merged with what's stored).

@@ -110,6 +110,22 @@
 .set-inwrap .set-mini{margin:3px;padding:4px 10px;font-size:11px;flex:0 0 auto}
 
 .set-mod-foot{display:flex;align-items:center;gap:10px;margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border-subtle)}
+.set-mod-foot-hint{font-size:11px;color:var(--text-muted);margin-left:auto}
+
+/* per-module "unsaved" dot (lit via .set-mod.dirty from the diff) */
+.set-dirty-dot{display:none;width:7px;height:7px;border-radius:50%;background:var(--accent-amber);box-shadow:0 0 6px var(--accent-amber);flex:0 0 auto}
+.set-mod.dirty .set-dirty-dot{display:inline-block}
+
+/* per-tab "unsaved" dot */
+.set-tab-dot{display:none;width:6px;height:6px;border-radius:50%;background:var(--accent-amber);margin-left:7px;vertical-align:middle}
+.set-tabs button .set-tab-dot.on{display:inline-block}
+
+/* User-Agent: custom free-text field, shown only when "Custom…" is picked */
+.set-inwrap select{flex:1;background:none;border:0;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;padding:8px 11px;outline:none;cursor:pointer}
+.set-inwrap select option{background:var(--bg-surface);color:var(--text-primary)}
+.set-ua-custom{margin-top:7px;width:100%;background:var(--bg-surface);border:1px solid var(--border-neutral);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font-mono);font-size:13px;padding:8px 11px;outline:none}
+.set-ua-custom:focus{border-color:var(--border-strong)}
+.set-ua-custom.hidden{display:none}
 
 /* buttons */
 .set-btn{font-size:13px;padding:8px 16px;border-radius:var(--radius-md);border:1px solid;font-weight:500;cursor:pointer;font-family:inherit}

@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const { MODULE_META } = require('./module_meta');
+const { DEFAULT_UA, resolveUA, displayUA } = require('./user_agents');
 
 function homeDir() { return process.env.WEBKILLER_HOME || path.join(os.homedir(), '.webkiller'); }
 function settingsPath() { return path.join(homeDir(), 'module-settings.json'); }
@@ -29,7 +30,7 @@ function maskSecrets(modKey, values = {}) {
 }
 
 const GLOBAL_DEFAULTS = {
-  user_agent: 'WebKiller/2.0 (+authorized-security-testing)',
+  user_agent: DEFAULT_UA,
   rate_limit: 50,
   concurrency: 20,
   timeout: 15,
@@ -70,7 +71,11 @@ function save(input = {}) {
   return out;
 }
 
-function globals() { return { ...GLOBAL_DEFAULTS, ...(load().global || {}) }; }
+function globals() {
+  const g = { ...GLOBAL_DEFAULTS, ...(load().global || {}) };
+  g.user_agent = displayUA(g.user_agent); // never surface empty / legacy WebKiller* to the UI
+  return g;
+}
 
 // Flatten global + every module's saved params into the one flat config object
 // the scan modules read (this.config.<key>).
@@ -78,6 +83,7 @@ function toOverrides() {
   const s = load();
   const o = { ...GLOBAL_DEFAULTS, ...(s.global || {}) };
   for (const cfg of Object.values(s.modules || {})) if (cfg) Object.assign(o, cfg);
+  o.user_agent = resolveUA(o.user_agent); // random -> a concrete UA for this scan; never WebKiller*
   return o;
 }
 

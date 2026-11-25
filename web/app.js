@@ -819,6 +819,21 @@ async function renderSettings() {
   const [data, s] = await Promise.all([api('/modules'), api('/ai/settings')]);
   const modules = data.modules || [];
   const glob = data.global || {};
+  const uaPresets = data.uaPresets || [];
+  const UA_RANDOM = data.uaRandom || '__random__';
+  const uaField = (() => {
+    const cur = glob.user_agent || '';
+    const isRandom = cur === UA_RANDOM;
+    const match = uaPresets.find(p => p.value === cur);
+    const isCustom = !isRandom && !match && cur !== '';
+    const opts = uaPresets.map(p => `<option value="${esc(p.value)}" ${match && match.value === p.value ? 'selected' : ''}>${esc(p.label)}</option>`).join('')
+      + `<option value="${esc(UA_RANDOM)}" ${isRandom ? 'selected' : ''}>Random — a different real browser each scan</option>`
+      + `<option value="__custom__" ${isCustom ? 'selected' : ''}>Custom…</option>`;
+    return `<div class="set-field wide"><label>User-Agent <span class="help">— what the target sees; your scanner stays anonymous</span></label>
+        <div class="set-inwrap"><select id="gUAPreset" data-ua>${opts}</select></div>
+        <input id="gUA" class="set-ua-custom${isCustom ? '' : ' hidden'}" data-ua placeholder="paste a custom User-Agent" value="${isCustom ? esc(cur) : ''}">
+      </div>`;
+  })();
   const presets = s.presets || {};
   const suggested = s.suggestedModels || {};
   const presetKeys = Object.keys(presets);
@@ -838,7 +853,7 @@ async function renderSettings() {
     if (p.type === 'bool') {
       const on = val === true || val === 'true';
       return `<div class="set-field"><label>${esc(p.label)}</label>
-        <button class="set-sw" role="switch" aria-checked="${on}" data-mod="${esc(m.key)}" data-param="${esc(p.key)}" data-type="bool" ${disabled} aria-label="${esc(p.label)}"></button></div>`;
+        <button class="set-sw" role="switch" aria-checked="${on}" data-mod="${esc(m.key)}" data-param="${esc(p.key)}" data-type="bool" data-def="${p.def === true}" ${disabled} aria-label="${esc(p.label)}"></button></div>`;
     }
     if (p.type === 'secret') {
       const isSet = val && typeof val === 'object' ? !!val.set : !!val;
@@ -906,7 +921,7 @@ async function renderSettings() {
       ? `<div class="set-form${m.status === 'blocked' ? ' disabled' : ''}">${fields}</div>`
       : `<div class="set-note" style="color:var(--text-muted)">No parameters — this module runs with sensible defaults.</div>`;
     const foot = m.status === 'blocked' ? '' :
-      `<div class="set-mod-foot"><button class="set-btn primary" data-saveone>Save</button><button class="set-btn ghost" data-reset="${esc(m.key)}">Reset</button></div>`;
+      `<div class="set-mod-foot"><button class="set-btn ghost" data-reset="${esc(m.key)}">Reset to defaults</button><span class="set-mod-foot-hint">changes commit from the bar below</span></div>`;
     return head + form + foot;
   }
 
@@ -918,7 +933,7 @@ async function renderSettings() {
     return `<div class="set-mod" data-mod="${esc(m.key)}" data-group="${esc(m.group)}" data-status="${esc(m.status)}" data-hay="${esc(hay)}">
       <div class="set-mod-h">
         <button class="set-sw" role="switch" aria-checked="${checked}" data-enable="${esc(m.key)}" ${disabledSw} aria-label="Enable ${esc(m.label)}"></button>
-        <button class="set-expand"><span><span class="set-name">${esc(m.label)} ${tag}</span><span class="set-desc">${esc(m.desc)}</span></span></button>
+        <button class="set-expand"><span><span class="set-name"><span class="set-dirty-dot" aria-hidden="true"></span>${esc(m.label)} ${tag}</span><span class="set-desc">${esc(m.desc)}</span></span></button>
         <div class="set-status">${badgeHtml(m)}</div>
         <span class="set-caret">▸</span>
       </div>
@@ -953,9 +968,9 @@ async function renderSettings() {
     ${blocked ? `<div class="set-banner"><span class="ic">⚠</span><div class="t"><b>${blocked} helper tool${blocked > 1 ? 's' : ''} missing.</b> Modules without a built-in fallback stay off until installed.</div><button class="set-mini accent" data-gotodeps="1">Install tools</button></div>` : ''}
 
     <div class="set-tabs" role="tablist">
-      <button class="on" data-tab="modules">Modules</button>
+      <button class="on" data-tab="modules">Modules<span class="set-tab-dot" data-tabdot="modules"></span></button>
       <button data-tab="deps">Dependencies</button>
-      <button data-tab="global">Global defaults</button>
+      <button data-tab="global">Global defaults<span class="set-tab-dot" data-tabdot="global"></span></button>
       <button data-tab="ai">AI provider</button>
     </div>
 
@@ -985,7 +1000,7 @@ async function renderSettings() {
       <div class="set-panel">
         <h4>Request defaults</h4>
         <div class="set-gform">
-          <div class="set-field wide"><label>User-Agent</label><div class="set-inwrap"><input id="gUA" value="${esc(glob.user_agent || '')}"></div></div>
+          ${uaField}
           <div class="set-field"><label>Rate limit</label><div class="set-inwrap"><input id="gRate" type="number" value="${esc(glob.rate_limit)}"><span class="unit">req/s</span></div><span class="set-sub">hard cap for every module</span></div>
           <div class="set-field"><label>Concurrency</label><div class="set-inwrap"><input id="gConc" type="number" value="${esc(glob.concurrency)}"></div></div>
           <div class="set-field"><label>Default timeout</label><div class="set-inwrap"><input id="gTimeout" type="number" value="${esc(glob.timeout)}"><span class="unit">s</span></div></div>
@@ -1017,12 +1032,42 @@ async function renderSettings() {
       </div>
     </div>
   </div>
-  <div class="set-savebar" id="setSavebar"><div class="inner"><span class="msg"><span class="dot"></span><span id="setDirtyMsg">Unsaved changes</span></span><button class="set-btn ghost" id="setDiscard">Discard</button><button class="set-btn primary" id="setSaveAll">Save all</button></div></div>
+  <div class="set-savebar" id="setSavebar"><div class="inner"><span class="msg"><span class="dot"></span><span id="setDirtyMsg">Unsaved changes</span></span><button class="set-btn ghost" id="setDiscard">Discard</button><button class="set-btn primary" id="setSaveAll">Save changes</button></div></div>
   `;
 
-  // ---- dirty tracking ----
+  // ---- dirty tracking (baseline snapshot + diff; transient view state never counts) ----
+  function stable(x) {
+    if (Array.isArray(x)) return '[' + x.map(stable).join(',') + ']';
+    if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map(k => JSON.stringify(k) + ':' + stable(x[k])).join(',') + '}';
+    return JSON.stringify(x);
+  }
+  function diffKeys(base, cur) {
+    const out = new Set();
+    const cmp = (prefix, a, b) => { a = a || {}; b = b || {}; new Set([...Object.keys(a), ...Object.keys(b)]).forEach(k => { if (stable(a[k]) !== stable(b[k])) out.add(prefix + k); }); };
+    cmp('global.', base.global, cur.global);
+    cmp('enabled.', base.enabled, cur.enabled);
+    const mb = base.modules || {}, mc = cur.modules || {};
+    new Set([...Object.keys(mb), ...Object.keys(mc)]).forEach(mk => {
+      const a = mb[mk] || {}, b = mc[mk] || {};
+      new Set([...Object.keys(a), ...Object.keys(b)]).forEach(pk => { if (stable(a[pk]) !== stable(b[pk])) out.add('modules.' + mk + '.' + pk); });
+    });
+    return [...out];
+  }
+  let baselineObj = collect();
   let dirty = false;
-  const markDirty = () => { if (!dirty) { dirty = true; $('#setSavebar').classList.add('show'); } };
+  let curTab = 'modules';
+  function updateBar() {
+    const changed = diffKeys(baselineObj, collect());
+    dirty = changed.length > 0;
+    $('#setSavebar').classList.toggle('show', dirty && curTab !== 'ai');
+    $('#setDirtyMsg').textContent = changed.length === 1 ? '1 unsaved change' : `${changed.length} unsaved changes`;
+    const changedMods = new Set();
+    changed.forEach(k => { if (k.startsWith('modules.')) changedMods.add(k.split('.')[1]); else if (k.startsWith('enabled.')) changedMods.add(k.slice('enabled.'.length)); });
+    $$('.set-mod[data-mod]').forEach(card => card.classList.toggle('dirty', changedMods.has(card.dataset.mod)));
+    const md = $('[data-tabdot="modules"]'); if (md) md.classList.toggle('on', changed.some(k => k.startsWith('modules.') || k.startsWith('enabled.')));
+    const gd = $('[data-tabdot="global"]'); if (gd) gd.classList.toggle('on', changed.some(k => k.startsWith('global.')));
+  }
+  const recompute = updateBar;
 
   // ---- tabs ----
   let depsLoaded = false;
@@ -1032,6 +1077,7 @@ async function renderSettings() {
     if (b.dataset.tab === 'modules' && depsDirty) { depsDirty = false; renderSettings(); return; }
     $$('.set-tabs button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
+    curTab = b.dataset.tab;
     $$('.set-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === b.dataset.tab));
     // The module banner + pills count MODULES; hide them on the Dependencies tab,
     // which counts TOOLS, so the two "ready" numbers never sit side by side.
@@ -1039,6 +1085,7 @@ async function renderSettings() {
     const bn = $('.set-banner'); if (bn) bn.style.display = onDeps ? 'none' : '';
     const pills = $('.set-summary'); if (pills) pills.style.display = onDeps ? 'none' : '';
     if (b.dataset.tab === 'deps' && !depsLoaded) { depsLoaded = true; renderDepsTab(); }
+    updateBar(); // bar hides on the AI tab (own Save) and reflects dirty elsewhere
   }));
   $$('[data-gotodeps]').forEach(b => b.addEventListener('click', () => { const t = $('.set-tabs button[data-tab="deps"]'); if (t) t.click(); }));
 
@@ -1054,11 +1101,13 @@ async function renderSettings() {
     ev.stopPropagation();
     if (sw.disabled) return;
     sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
-    markDirty();
+    recompute();
   }));
 
-  // ---- any input change marks dirty ----
-  app.addEventListener('input', ev => { if (ev.target.closest('.set-scope')) markDirty(); });
+  // ---- only real config fields mark dirty (search / filter chips / expand never do) ----
+  const DIRTY_SEL = '[data-param], [data-ua], #gRate, #gConc, #gTimeout, #gScope';
+  app.addEventListener('input', ev => { if (ev.target.matches && ev.target.matches(DIRTY_SEL)) recompute(); });
+  app.addEventListener('change', ev => { if (ev.target.matches && ev.target.matches(DIRTY_SEL)) recompute(); });
 
   // ---- search + filter ----
   let filter = 'all';
@@ -1076,6 +1125,13 @@ async function renderSettings() {
     });
   }
   $('#setSearch').addEventListener('input', applyFilter);
+  // ---- User-Agent preset <-> custom input ----
+  const uaSel = $('#gUAPreset');
+  if (uaSel) uaSel.addEventListener('change', () => {
+    const inp = $('#gUA');
+    const custom = uaSel.value === '__custom__';
+    if (inp) { inp.classList.toggle('hidden', !custom); if (custom) inp.focus(); }
+  });
   $$('.set-chip').forEach(ch => ch.addEventListener('click', () => {
     $$('.set-chip').forEach(x => x.classList.remove('on'));
     ch.classList.add('on');
@@ -1103,16 +1159,23 @@ async function renderSettings() {
   // ---- reset one module's fields ----
   $$('[data-reset]').forEach(btn => btn.addEventListener('click', () => {
     const card = app.querySelector(`.set-mod[data-mod="${btn.dataset.reset}"]`);
-    card.querySelectorAll('input[data-param]').forEach(i => { i.value = ''; });
-    card.querySelectorAll('.set-sw[data-param]').forEach(sw => sw.setAttribute('aria-checked', 'false'));
-    markDirty();
+    card.querySelectorAll('input[data-param]').forEach(i => { i.value = ''; if (i.dataset.type === 'secret') { delete i.dataset.clear; i.disabled = false; } });
+    card.querySelectorAll('.set-sw[data-param]').forEach(sw => sw.setAttribute('aria-checked', sw.dataset.def === 'true' ? 'true' : 'false'));
+    recompute();
   }));
 
   // ---- collect + save all ----
+  function uaValue() {
+    const sel = $('#gUAPreset');
+    const inp = $('#gUA');
+    if (!sel) return inp ? inp.value.trim() : '';
+    if (sel.value === '__custom__') return inp ? inp.value.trim() : '';
+    return sel.value; // a preset value or the Random sentinel
+  }
   function collect() {
     const num = v => { const n = Number(v); return v !== '' && !Number.isNaN(n) ? n : undefined; };
     const global = {
-      user_agent: $('#gUA').value.trim(),
+      user_agent: uaValue(),
       rate_limit: num($('#gRate').value),
       concurrency: num($('#gConc').value),
       timeout: num($('#gTimeout').value),
@@ -1143,15 +1206,22 @@ async function renderSettings() {
     return { global, modules: mods, enabled };
   }
   async function saveAll() {
+    const btn = $('#setSaveAll'), disc = $('#setDiscard'), old = btn.textContent;
+    btn.disabled = true; disc.disabled = true; btn.textContent = 'Saving…';
     const res = await api('/settings', { method: 'POST', body: collect() });
+    btn.disabled = false; disc.disabled = false; btn.textContent = old;
     if (res.ok) {
-      dirty = false; $('#setSavebar').classList.remove('show');
+      // typed secrets are now stored → clear them so they read as "keep", then re-baseline
+      $$('input[data-type="secret"]').forEach(i => { i.value = ''; delete i.dataset.clear; i.disabled = false; });
+      baselineObj = collect();
+      updateBar();
       toast('Settings saved', 'success');
     } else toast(res.error || 'save failed', 'error');
   }
   $('#setSaveAll').addEventListener('click', saveAll);
-  $$('[data-saveone]').forEach(b => b.addEventListener('click', saveAll));
   $('#setDiscard').addEventListener('click', () => renderSettings());
+  // Cmd/Ctrl+S commits pending changes (never on the AI tab, which has its own Save)
+  app.onkeydown = (e) => { if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S') && dirty && curTab !== 'ai') { e.preventDefault(); saveAll(); } };
 
   // secret field — Test (validate the stored token) + remove (explicit clear on Save)
   $$('[data-sectest]').forEach(b => b.addEventListener('click', async () => {
@@ -1169,7 +1239,7 @@ async function renderSettings() {
     if (inp) { inp.dataset.clear = '1'; inp.value = ''; inp.placeholder = '(will be removed on Save)'; inp.disabled = true; }
     const note = document.querySelector(`[data-secnote="${b.dataset.secclear}"]`);
     if (note) note.textContent = '⚠ token will be removed on Save';
-    markDirty();
+    recompute();
   }));
 
   // ---- AI pane (provider/model/key) ----

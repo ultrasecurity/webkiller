@@ -7,12 +7,13 @@
 
 const http = require('http');
 const https = require('https');
+const { DEFAULT_UA } = require('../user_agents');
 
 const MAX_CHECKS_PER_LEAD = 3;
 const MAX_TOTAL_REQUESTS = 40; // cumulative HTTP cap across every lead in one scan
 const MAX_LEADS = 25;          // cap model calls — only this many leads get an active agent check
 
-async function verifyLeadsWithAgent(leads, { scope, emit } = {}) {
+async function verifyLeadsWithAgent(leads, { scope, emit, ua } = {}) {
   let provider;
   try { provider = require('./settings').getProvider(); } catch { provider = null; }
   if (!provider) return leads.map(l => ({ lead: l, verified: false, reason: 'AI provider unavailable' }));
@@ -24,7 +25,7 @@ async function verifyLeadsWithAgent(leads, { scope, emit } = {}) {
     if (i++ >= MAX_LEADS) { out.push({ lead, verified: false, reason: 'verification cap reached (too many leads)' }); continue; }
     if (budget <= 0) { out.push({ lead, verified: false, reason: 'verification budget exhausted' }); continue; }
     let res;
-    try { res = await verifyOne(lead, { scope, provider, emit, budget }); }
+    try { res = await verifyOne(lead, { scope, provider, emit, budget, ua }); }
     catch (e) { res = { verified: false, reason: `verify error: ${String(e.message || e).slice(0, 80)}`, used: 0 }; }
     budget -= (res.used || 0);
     out.push({ lead, verified: !!res.verified, evidence: res.evidence, reason: res.reason });
@@ -32,7 +33,7 @@ async function verifyLeadsWithAgent(leads, { scope, emit } = {}) {
   return out;
 }
 
-async function verifyOne(lead, { scope, provider, emit, budget }) {
+async function verifyOne(lead, { scope, provider, emit, budget, ua }) {
   const sys = [
     'You are a web-security verifier. Given a possible CVE on a host, propose up to',
     `${MAX_CHECKS_PER_LEAD} SAFE, READ-ONLY HTTP GET checks that would PROVE the host is actually affected`,
@@ -62,7 +63,7 @@ async function verifyOne(lead, { scope, provider, emit, budget }) {
     if (!scope || !scope.inScope || !scope.inScope(u.hostname)) continue; // in-scope only — never trust the model on scope
     used++;
     if (emit) emit('log', { msg: `verify ${lead.cve}: GET ${u.pathname}${u.search}` });
-    let r; try { r = await safeGet(u); } catch { continue; }
+    let r; try { r = await safeGet(u, ua); } catch { continue; }
     const hay = (chk.where === 'header' ? JSON.stringify(r.headers || {}) : (r.body || '')).toLowerCase();
     const needle = String(chk.contains || '').toLowerCase().trim();
     // Deterministic verdict: the tell must be present in the REAL response.
@@ -79,10 +80,10 @@ function buildUrl(base, path) {
 }
 
 // GET-only fetch; forced safe method, bad certs tolerated, size + time capped.
-function safeGet(u) {
+function safeGet(u, ua) {
   return new Promise((resolve, reject) => {
     const mod = u.protocol === 'https:' ? https : http;
-    const opts = { method: 'GET', headers: { 'User-Agent': 'WebKiller/2.0 (verify)' } };
+    const opts = { method: 'GET', headers: { 'User-Agent': ua || DEFAULT_UA } };
     if (u.protocol === 'https:') opts.agent = new https.Agent({ rejectUnauthorized: false });
     let settled = false; const done = (fn, a) => { if (!settled) { settled = true; fn(a); } };
     const req = mod.request(u, opts, (res) => {

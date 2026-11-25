@@ -12,6 +12,7 @@
 const DEFAULT_MAX_TOOL_CALLS = 50; // tunable in Settings; the agent runs "wide" by default
 const MAX_TOKENS_BUDGET = 600000;  // across the whole agentic scan (generous — a cheap agent model)
 const MAX_HTTP_REQUESTS = 150;     // fine-grained requests the agent may send
+const { DEFAULT_UA } = require('../user_agents');
 
 // Friendly tool name -> engine module name.
 const TOOL_MODULES = {
@@ -232,13 +233,13 @@ function readArtifactSummary(workspace, name) {
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-function rawRequest(method, u, headers, body) {
+function rawRequest(method, u, headers, body, ua) {
   return new Promise((resolve, reject) => {
     const https = require('https');
     const http = require('http');
     const isHttps = u.protocol === 'https:';
     const mod = isHttps ? https : http;
-    const opts = { method, headers: { 'User-Agent': 'WebKiller/2.0', ...(headers || {}) } };
+    const opts = { method, headers: { 'User-Agent': ua || DEFAULT_UA, ...(headers || {}) } };
     if (isHttps) opts.agent = new https.Agent({ rejectUnauthorized: false }); // scan targets often have bad certs
     let settled = false;
     const done = (fn, arg) => { if (!settled) { settled = true; fn(arg); } };
@@ -278,7 +279,7 @@ function pickHeaders(h) {
 // the host must be in scope, only http/https, intrusive methods need
 // Active-tests mode, and the count is capped. This is what enables custom
 // payloads, response inspection and chaining without trusting the model.
-async function doHttpRequest(args, scope, allowIntrusive, state, emit) {
+async function doHttpRequest(args, scope, allowIntrusive, state, emit, ua) {
   const { method = 'GET', url, headers, body } = args || {};
   if (!url) return { error: 'url required' };
   if (state.count >= MAX_HTTP_REQUESTS) return { error: `http_request budget reached (${MAX_HTTP_REQUESTS})` };
@@ -291,7 +292,7 @@ async function doHttpRequest(args, scope, allowIntrusive, state, emit) {
   state.count += 1;
   emit('agent_request', `${m} ${u.pathname}${u.search}`);
   try {
-    const r = await rawRequest(m, u, headers, body);
+    const r = await rawRequest(m, u, headers, body, ua);
     const text = r.body || '';
     return { status: r.status, headers: pickHeaders(r.headers), length: text.length, body: text.slice(0, 4000) };
   } catch (e) {
@@ -318,7 +319,8 @@ function recordFinding(args, workspace, emit) {
 
 // opts: { target, scope, workspace, config, provider, model, allowIntrusive, emit(type,data), runTool(moduleName)->ModuleResult }
 async function runAgenticScan(opts) {
-  const { target, scope, provider, emit, runTool, workspace, allowIntrusive = false, model, exclude = [], signal, maxToolCalls: maxToolCallsOpt } = opts;
+  const { target, scope, provider, emit, runTool, workspace, allowIntrusive = false, model, exclude = [], signal, maxToolCalls: maxToolCallsOpt, config } = opts;
+  const agentUA = (config && config.user_agent) || DEFAULT_UA; // target-facing UA for the agent's own http_request tool
   const MAX_TOOL_CALLS = Math.max(1, Number(maxToolCallsOpt) || DEFAULT_MAX_TOOL_CALLS);
   const MAX_ITERS = MAX_TOOL_CALLS + 10;
   const tools = buildTools({ allowIntrusive, exclude });
@@ -382,7 +384,7 @@ async function runAgenticScan(opts) {
         emit('agent_read', args.artifact || '');
         content = JSON.stringify(readArtifactSummary(workspace, args.artifact));
       } else if (fname === 'http_request') {
-        content = JSON.stringify(await doHttpRequest(args, scope, allowIntrusive, httpState, emit));
+        content = JSON.stringify(await doHttpRequest(args, scope, allowIntrusive, httpState, emit, agentUA));
       } else if (fname === 'record_finding') {
         content = JSON.stringify(recordFinding(args, workspace, emit));
       } else if (TOOL_MODULES[fname]) {

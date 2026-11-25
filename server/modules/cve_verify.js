@@ -69,7 +69,7 @@ class CveVerify extends BaseModule {
       let results = [];
       try {
         const { verifyLeadsWithAgent } = require('../ai/verify_agent');
-        results = await verifyLeadsWithAgent(stillUnverified, { scope: this.scope, emit: this.emit });
+        results = await verifyLeadsWithAgent(stillUnverified, { scope: this.scope, emit: this.emit, ua: this.config && this.config.user_agent });
       } catch (e) {
         results = stillUnverified.map(l => ({ lead: l, verified: false, reason: `agent verify error: ${String(e.message || e).slice(0, 60)}` }));
       }
