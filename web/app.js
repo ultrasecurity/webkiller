@@ -253,7 +253,7 @@ async function renderNewScan(initialMode) {
     { name: 'Recon', desc: 'Enumerate subdomains, probe live hosts, map DNS', keys: ['subdomains_passive', 'subdomains_active', 'probe', 'portscan', 'osint_dns'] },
     { name: 'Surface', desc: 'Collect URLs, brute-force paths, pull endpoints & params from JS', keys: ['urls', 'content', 'params', 'jsrecon'] },
     { name: 'Fingerprint', desc: 'Identify tech stack, servers and WAF', keys: ['fingerprint', 'screenshots'] },
-    { name: 'Confirm', desc: 'Actively test the surface and prove vulnerabilities with evidence', intrusive: true, keys: ['vuln_signal', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'secret_verify'] },
+    { name: 'Confirm', desc: 'Actively test the surface and prove vulnerabilities with evidence', intrusive: true, keys: ['service_cve', 'cve_verify', 'vuln_signal', 'xss_confirm', 'sqli_confirm', 'ssti_confirm', 'lfi_confirm', 'ssrf_confirm', 'xxe_confirm', 'deser_confirm', 'jwt_confirm', 'massassign_confirm', 'nosqli_confirm', 'cors_confirm', 'openredirect_confirm', 'protopollution_confirm', 'graphql_confirm', 'secret_verify'] },
     { name: 'Report', desc: 'Summarize confirmed findings with proof-of-concept', keys: [] },
   ];
   function renderPlaybook(scope) {
