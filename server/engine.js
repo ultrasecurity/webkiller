@@ -4,6 +4,10 @@ const { Workspace } = require('./workspace');
 const { AssetStore } = require('./store');
 const { isValidTarget, splitTarget } = require('./validate');
 const moduleSettings = require('./module_settings');
+const { MODULE_META } = require('./module_meta');
+
+// Modules that run ONLY under an agentic (AI) scan — never in the classic pipeline.
+const AGENTIC_ONLY = new Set(MODULE_META.filter(m => m.agentic).map(m => m.key));
 
 const MODULE_MAP = {};
 
@@ -204,6 +208,10 @@ class ScanEngine {
     const modules = profile.modules.filter(m => {
       if (!MODULE_MAP[m]) {
         this._addEvent(scanId, 'warn', `Unknown module: ${m}`);
+        return false;
+      }
+      if (AGENTIC_ONLY.has(m)) {
+        this._addEvent(scanId, 'skip', `Agentic-only module — runs in AI scans, not classic: ${m}`);
         return false;
       }
       if (!moduleSettings.isEnabled(m)) {

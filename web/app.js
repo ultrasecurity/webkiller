@@ -928,7 +928,7 @@ async function renderSettings() {
   function modHtml(m) {
     const checked = m.enabled && m.status !== 'blocked';
     const disabledSw = m.status === 'blocked' ? 'disabled' : '';
-    const tag = m.intrusive ? '<span class="set-tag intr">intrusive</span>' : '';
+    const tag = (m.intrusive ? '<span class="set-tag intr">intrusive</span>' : '') + (m.agentic ? '<span class="set-tag ag">agentic only</span>' : '');
     const hay = `${m.label} ${m.key} ${m.tool || ''} ${m.desc}`.toLowerCase();
     return `<div class="set-mod" data-mod="${esc(m.key)}" data-group="${esc(m.group)}" data-status="${esc(m.status)}" data-hay="${esc(hay)}">
       <div class="set-mod-h">

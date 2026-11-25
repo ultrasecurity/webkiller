@@ -67,6 +67,7 @@
 .set-name{font-weight:600;font-size:15px;color:var(--text-primary);display:flex;align-items:center;gap:8px}
 .set-tag{font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;border:1px solid}
 .set-tag.intr{color:var(--accent-high);border-color:rgba(255,107,53,.3);background:rgba(255,107,53,.06)}
+.set-tag.ag{color:var(--accent-info);border-color:var(--accent-info-glow);background:rgba(68,136,255,.06)}
 .set-desc{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .set-status{display:flex;align-items:center;justify-content:flex-end;gap:7px}
 .set-tbadge{font-family:var(--font-mono);font-size:11px;padding:4px 10px;border-radius:var(--radius-pill);border:1px solid;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
