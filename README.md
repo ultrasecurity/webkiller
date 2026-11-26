@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="brand/webkiller-banner.png" alt="WebKiller — agentic recon & exploitation engine">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="brand/webkiller-banner-light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="brand/webkiller-banner.png">
+    <img alt="WebKiller — agentic recon & exploitation engine" src="brand/webkiller-banner.png">
+  </picture>
 </p>
 
 <p align="center">

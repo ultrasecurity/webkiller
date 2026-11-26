@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="320" viewBox="0 0 1280 320">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F3F5F8"/><stop offset="1" stop-color="#E7EBF0"/>
+    </linearGradient>
+    <linearGradient id="grC" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#49AC24"/><stop offset="0.55" stop-color="#2A8F11"/><stop offset="1" stop-color="#1C7209"/>
+    </linearGradient>
+    <clipPath id="iconclip"><rect x="231" y="48" width="224" height="224" rx="50"/></clipPath>
+  </defs>
+
+  <rect width="1280" height="320" rx="28" fill="url(#bg)"/>
+
+  <!-- app icon (the approved logo), zoomed slightly and clipped to one rounded tile -->
+  <image x="213" y="30" width="260" height="260" xlink:href="webkiller-icon.png" href="webkiller-icon.png" clip-path="url(#iconclip)" preserveAspectRatio="xMidYMid slice"/>
+
+  <!-- wordmark -->
+  <g font-family="Helvetica,Arial,sans-serif">
+    <text x="513" y="148" font-size="88" font-weight="800" letter-spacing="1" fill="#1B2230">WEB<tspan fill="url(#grC)">KILLER</tspan></text>
+    <text x="517" y="198" font-size="25" fill="#5A6472">Agentic recon &amp; exploitation engine</text>
+    <text x="517" y="248" font-size="20" fill="#98A2B3" letter-spacing="3">DISCOVER&#160;&#160;·&#160;&#160;MAP&#160;&#160;·&#160;&#160;CONFIRM&#160;&#160;·&#160;&#160;PROVE</text>
+  </g>
+</svg>
