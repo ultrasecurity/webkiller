@@ -18,7 +18,7 @@
 //              versionSource: 'probe'|'install-record' },
 //     defaultArgs?: string[],    // always appended at run time
 //     platforms: { <platform>: { support:'supported'|'untested'|'unsupported', note? } },
-//     install: ArchiveInstall | UvToolInstall | { kind:'manual', command },
+//     install: ArchiveInstall | UvToolInstall | { kind:'manual', command, commands? },
 //     data?: [{ id, url, sha256 }],   // pinned side-data (e.g. nuclei templates)
 //   }
 //
@@ -107,8 +107,16 @@ const TOOLS = {
     platforms: plat({ 'darwin-x64': { support: 'supported' }, 'linux-x64': { support: 'supported' }, 'linux-arm64': { support: 'supported' }, 'win32-x64': { support: 'supported' } }),
     // nmap ships a C program plus data files (nmap-services, nmap-os-db) — not a
     // single static binary — so it is installed via the OS package manager, not
-    // auto-downloaded like the Go tools. The UI shows this command when it's missing.
-    install: { kind: 'manual', command: 'brew install nmap' },
+    // auto-downloaded like the Go tools. The UI shows the command for the user's OS
+    // when it's missing; `command` stays as the macOS default / fallback.
+    install: {
+      kind: 'manual', command: 'brew install nmap',
+      commands: {
+        darwin: 'brew install nmap',
+        win32: 'winget install Insecure.Nmap', // official nmap pkg — bundles Npcap (needed for SYN/OS scans)
+        linux: 'sudo apt install nmap',
+      },
+    },
   },
   nuclei: {
     id: 'nuclei', displayName: 'nuclei', homepage: 'https://github.com/projectdiscovery/nuclei', license: 'MIT',

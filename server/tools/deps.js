@@ -75,7 +75,7 @@ function payload(ctxOver) {
       reasons: d.reasons || [],
       neededBy: neededBy(spec.id),
       runtime: runtimeNeeds(spec.id, plat),
-      manualCommand: spec.install && spec.install.kind === 'manual' ? spec.install.command : null,
+      manualCommand: manualCommandFor(spec.install, plat),
       progress: _progress[spec.id] || null,
     };
   });
@@ -90,6 +90,14 @@ function payload(ctxOver) {
 }
 
 function hostOf(u) { try { return new URL(u).host; } catch { return null; } }
+
+// Manual-install command for the user's OS. plat is like 'win32-x64' → take the
+// os segment (darwin|win32|linux); fall back to the generic `command`.
+function manualCommandFor(install, plat) {
+  if (!install || install.kind !== 'manual') return null;
+  const osKey = String(plat || '').split('-')[0];
+  return (install.commands && install.commands[osKey]) || install.command || null;
+}
 
 async function install(id, opts = {}) {
   const spec = TOOLS[id];
