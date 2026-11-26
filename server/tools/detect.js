@@ -14,6 +14,7 @@ const nodeFs = require('fs');
 const os = require('os');
 const path = require('path');
 const { TOOLS, CAPABILITIES, PLATFORMS } = require('./manifest');
+const { winBatchArgv } = require('./winexec');
 
 // ---- platform ----
 function platformKey() {
@@ -65,15 +66,21 @@ function resetSystemDirs() { _sysDirs = null; } // for tests / tools-doctor empt
 // ---- exec names (handle Windows PATHEXT / .exe) ----
 function exeNames(base) {
   if (process.platform === 'win32') {
-    const exts = (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';').map(e => e.toLowerCase());
-    return [base, ...exts.map(e => base + e)];
+    // Only extensions we can actually spawn/probe: native executables plus
+    // .cmd/.bat (which winexec routes through cmd.exe). We deliberately ignore
+    // the rest of PATHEXT (.ps1/.py/…) — those can't be spawned without a shell
+    // and would mis-probe as "broken".
+    return [base + '.exe', base + '.com', base + '.cmd', base + '.bat', base];
   }
   return [base];
 }
 
 // ---- default injected deps ----
 function defaultExec(file, args, opts) {
-  const r = spawnSync(file, args, { timeout: (opts && opts.timeout) || 8000, encoding: 'utf8', windowsHide: true });
+  // .cmd/.bat shims must go through cmd.exe on modern Node; winBatchArgv is a
+  // no-op for .exe and off Windows, so this path is unchanged everywhere else.
+  const { command, args: argv, options } = winBatchArgv(file, args);
+  const r = spawnSync(command, argv, { timeout: (opts && opts.timeout) || 8000, encoding: 'utf8', windowsHide: true, ...options });
   let error = r.error;
   if (!error && r.signal === 'SIGTERM') error = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, signal: r.signal, error };

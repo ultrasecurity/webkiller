@@ -1,5 +1,6 @@
 const { execFile, spawn } = require('child_process');
 const readline = require('readline');
+const { winBatchArgv } = require('./tools/winexec');
 
 // Track live child processes so a scan stop — or the app quitting — can hard-kill
 // in-flight external tools instead of orphaning them (they'd otherwise keep
@@ -59,7 +60,10 @@ function runTool(cmd, timeout = 300, cwd = undefined) {
     const opts = { timeout: timeout * 1000, maxBuffer: 50 * 1024 * 1024 };
     if (cwd) opts.cwd = cwd;
 
-    const child = execFile(resolveBin(bin), args, opts, (err, stdout, stderr) => {
+    // .cmd/.bat tools (rare — a scoop shim or a user-set manual path) must run
+    // via cmd.exe on modern Node; winBatchArgv is a no-op for .exe and off Windows.
+    const { command, args: argv, options } = winBatchArgv(resolveBin(bin), args);
+    const child = execFile(command, argv, { ...opts, ...options }, (err, stdout, stderr) => {
       const duration = (Date.now() - start) / 1000;
       if (err) {
         if (err.killed || err.code === 'ETIMEDOUT') {
@@ -100,7 +104,8 @@ class StreamRunner {
   start() {
     const parts = splitCmd(this.cmd);
     const [bin, ...args] = parts;
-    this.proc = spawn(resolveBin(bin), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const { command, args: argv, options } = winBatchArgv(resolveBin(bin), args);
+    this.proc = spawn(command, argv, { stdio: ['ignore', 'pipe', 'pipe'], ...options });
     track(this.proc);
 
     const rl = readline.createInterface({ input: this.proc.stdout });
