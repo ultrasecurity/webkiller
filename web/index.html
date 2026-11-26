@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebKiller 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/app-agentic.css">
+<link rel="stylesheet" href="/app-settings.css">
+</head>
+<body>
+<script>
+  if (window.electronAPI && window.electronAPI.isElectron) {
+    const p = navigator.platform.toLowerCase();
+    document.body.classList.add('electron');
+    if (p.includes('mac')) document.body.classList.add('electron-mac');
+  }
+</script>
+
+<nav class="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <svg class="icon icon-xl" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="logo-text">WebKiller<span class="logo-ver">2.0</span></span>
+    </div>
+    <div class="nav-links">
+      <a href="#/" class="nav-link active" data-route="/">Dashboard</a>
+      <a href="#/scan" class="nav-link" data-route="/scan">New Scan</a>
+      <a href="#/settings" class="nav-link" data-route="/settings">Settings</a>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+  </div>
+</nav>
+
+<main class="page" id="app"></main>
+
+<div class="toast-container" id="toasts"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

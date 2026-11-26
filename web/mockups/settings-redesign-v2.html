@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebKiller — Settings v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-void:#0A0E0F;--bg-surface:#111618;--bg-raised:#161D1F;--bg-overlay:#1A2428;--bg-hover:#1E2A2D;
+  --accent-primary:#00D4AA;--accent-primary-dim:#00A888;--accent-primary-glow:rgba(0,212,170,.18);--accent-primary-muted:rgba(0,212,170,.06);
+  --accent-red:#FF4444;--accent-red-glow:rgba(255,68,68,.18);--accent-high:#FF6B35;--accent-amber:#FFAA00;--accent-amber-glow:rgba(255,170,0,.18);--accent-amber-muted:rgba(255,170,0,.06);
+  --accent-purple:#B84DFF;--accent-info:#4488FF;--accent-info-glow:rgba(68,136,255,.22);
+  --text-primary:#C8D8DA;--text-readable:#9DB2B6;--text-secondary:#7A949A;--text-muted:#5A7A80;--text-faint:#3A5056;
+  --border-subtle:rgba(0,212,170,.08);--border-default:rgba(0,212,170,.18);--border-strong:rgba(0,212,170,.40);--border-neutral:#243133;
+  --font-display:'Space Grotesk',sans-serif;--font-ui:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --radius-md:6px;--radius-lg:8px;--radius-xl:10px;--radius-pill:999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-void);background-image:radial-gradient(ellipse 60% 40% at 50% 0,rgba(0,212,170,.04) 0,transparent 70%);color:var(--text-primary);font-family:var(--font-ui);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;padding-bottom:88px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 var(--space-5)}
+.mono{font-family:var(--font-mono)}
+h1,h3,h4{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px;border-radius:var(--radius-md)}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:var(--space-5);padding:13px var(--space-6);background:rgba(10,14,15,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-subtle)}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--font-display);font-weight:700}.brand b{color:var(--accent-primary)}.brand .v{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.nav{display:flex;gap:4px}.nav a{padding:6px 13px;border-radius:var(--radius-md);font-size:13px;color:var(--text-secondary);text-decoration:none}.nav a.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+.mock-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-primary);background:var(--accent-primary-muted);border:1px solid var(--border-default);border-radius:var(--radius-pill);padding:4px 14px;display:inline-block;margin:var(--space-5) 0 var(--space-4)}
+
+/* header */
+.hd{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;margin-bottom:var(--space-3)}
+.hd h1{font-size:26px}
+.profile-sel{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-readable)}
+.profile-sel select{background:var(--bg-surface);border:1px solid var(--border-neutral);color:var(--text-primary);font-family:var(--font-ui);font-size:13px;padding:7px 12px;border-radius:var(--radius-md)}
+.summary{display:flex;gap:var(--space-2);font-family:var(--font-mono);font-size:12px;flex-wrap:wrap}
+.sm{padding:5px 11px;border-radius:var(--radius-pill);border:1px solid var(--border-neutral);color:var(--text-readable);background:none}
+.sm b{color:var(--text-primary)} .sm.ok b{color:var(--accent-primary)} .sm.warn{border-color:var(--accent-amber-glow);color:var(--accent-amber)} .sm.warn b{color:var(--accent-amber)}
+.sm.warn{cursor:pointer}
+
+/* install banner */
+.install-banner{display:flex;align-items:center;gap:var(--space-3);background:var(--accent-amber-muted);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-lg);padding:11px var(--space-4);margin:var(--space-4) 0}
+.install-banner .ic{color:var(--accent-amber);font-size:16px}
+.install-banner .t{flex:1;font-size:13px;color:var(--text-readable)}.install-banner .t b{color:var(--accent-amber)}
+.mini{font-size:12px;padding:6px 12px;border-radius:var(--radius-md);border:1px solid var(--border-neutral);background:var(--bg-surface);color:var(--text-readable)}
+.mini.accent{color:var(--accent-primary);border-color:var(--border-default);background:var(--accent-primary-muted)}
+
+/* tabs */
+.tabs{display:flex;gap:4px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:4px;width:max-content;margin-bottom:var(--space-4)}
+.tabs button{font-size:13px;color:var(--text-secondary);background:none;border:0;padding:8px 18px;border-radius:var(--radius-md)}
+.tabs button.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+.pane{display:none}.pane.on{display:block}
+
+/* toolbar */
+.toolbar{display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-4);flex-wrap:wrap}
+.search{flex:1;min-width:260px;display:flex;align-items:center;gap:9px;background:var(--bg-surface);border:1px solid var(--border-neutral);border-radius:var(--radius-lg);padding:9px 13px}
+.search:focus-within{border-color:var(--border-strong)}
+.search input{flex:1;background:none;border:0;color:var(--text-primary);font-size:14px;outline:none}
+.search input::placeholder{color:var(--text-muted)}
+.search .ic{color:var(--text-muted)}.search kbd{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);border:1px solid var(--border-neutral);border-radius:4px;padding:1px 6px}
+.chip{font-size:12px;padding:7px 13px;border-radius:var(--radius-md);border:1px solid var(--border-neutral);color:var(--text-readable);background:var(--bg-surface)}
+.chip .n{font-family:var(--font-mono);color:var(--text-muted);margin-left:5px}
+.chip.on{color:var(--accent-primary);border-color:var(--border-default);background:var(--accent-primary-muted)}
+.chip.on .n{color:var(--accent-primary-dim)}
+
+/* group */
+.group{margin-bottom:var(--space-4)}
+.group-h{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:8px 0;color:var(--text-readable);text-align:left}
+.group-h .gn{font-family:var(--font-display);font-size:14px;font-weight:600}
+.group-h .gc{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.group-h .ln{flex:1;height:1px;background:var(--border-subtle)}
+.group-h .caret{color:var(--text-muted)}
+
+/* module card */
+.mod{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);margin-bottom:var(--space-2);overflow:hidden}
+.mod.open{border-color:var(--border-default)}
+.mod-h{display:grid;grid-template-columns:auto 1fr 200px 20px;align-items:center;gap:var(--space-3);padding:13px var(--space-4)}
+.sw{width:42px;height:24px;border-radius:var(--radius-pill);background:var(--bg-hover);border:1px solid var(--border-neutral);position:relative;flex-shrink:0;padding:0}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text-muted);transition:all .18s}
+.sw[aria-checked=true]{background:var(--accent-primary-muted);border-color:var(--border-strong)}
+.sw[aria-checked=true]::after{left:20px;background:var(--accent-primary)}
+.mod-expand{display:flex;align-items:center;gap:var(--space-3);min-width:0;background:none;border:0;text-align:left;padding:0;grid-column:2}
+.mod-name{font-weight:600;font-size:15px;color:var(--text-primary);display:flex;align-items:center;gap:8px}
+.tag{font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;border:1px solid}
+.tag.intr{color:var(--accent-high);border-color:rgba(255,107,53,.3);background:rgba(255,107,53,.06)}
+.mod-desc{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{display:flex;align-items:center;justify-content:flex-end;gap:7px}
+.tbadge{font-family:var(--font-mono);font-size:11px;padding:4px 10px;border-radius:var(--radius-pill);border:1px solid;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.tbadge.ready{color:var(--accent-primary-dim);border-color:var(--border-default);background:var(--accent-primary-muted)}
+.tbadge.fallback{color:var(--accent-amber);border-color:var(--accent-amber-glow);background:var(--accent-amber-muted)}
+.tbadge.blocked{color:var(--accent-red);border-color:var(--accent-red-glow);background:rgba(255,68,68,.05)}
+.tbadge.builtin{color:var(--accent-info);border-color:var(--accent-info-glow);background:rgba(68,136,255,.05)}
+.caret2{color:var(--text-muted);justify-self:center}
+
+.mod-body{display:none;padding:var(--space-4);border-top:1px solid var(--border-subtle);background:var(--bg-void)}
+.mod.open .mod-body{display:block}
+.note{font-size:12px;color:var(--text-readable)}
+.fallback-note{display:flex;gap:9px;align-items:flex-start;background:var(--accent-amber-muted);border:1px solid var(--accent-amber-glow);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:var(--space-3);font-size:12.5px;color:var(--text-readable)}
+
+/* install card (blocked) */
+.install-card{background:rgba(255,68,68,.04);border:1px solid var(--accent-red-glow);border-radius:var(--radius-lg);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3)}
+.install-card .hd2{display:flex;align-items:center;gap:8px;color:var(--accent-red);font-size:13px;font-weight:600;margin-bottom:9px}
+.install-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.install-row select{background:var(--bg-surface);border:1px solid var(--border-neutral);color:var(--text-readable);font-size:12px;padding:5px 9px;border-radius:var(--radius-md)}
+.cmd{flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--bg-void);border:1px solid var(--border-neutral);border-radius:var(--radius-md);padding:7px 11px;font-family:var(--font-mono);font-size:12px;color:var(--accent-primary)}
+.cmd .copy{margin-left:auto;color:var(--text-readable);border:1px solid var(--border-neutral);background:none;border-radius:4px;padding:3px 9px;font-size:11px}
+.recheck{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)}
+
+/* form */
+.form{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3) var(--space-4)}
+fieldset{border:0;margin:0;padding:0;display:contents}
+fieldset[disabled] .field{opacity:.55}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}.field.wide{grid-column:span 2}
+.field label{font-size:12px;color:var(--text-readable);display:flex;align-items:center;gap:6px}
+.field .help{color:var(--text-muted);font-size:11px;font-weight:400}
+.q{width:14px;height:14px;border-radius:50%;border:1px solid var(--border-neutral);color:var(--text-muted);font-size:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.inwrap{display:flex;align-items:center;background:var(--bg-surface);border:1px solid var(--border-neutral);border-radius:var(--radius-md)}
+.inwrap:focus-within{border-color:var(--border-strong)}
+.inwrap input{flex:1;background:none;border:0;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;padding:8px 11px;outline:none;min-width:0}
+.inwrap .unit{color:var(--text-muted);font-family:var(--font-mono);font-size:11px;padding:0 11px}
+.sub{font-size:11px;color:var(--text-muted)}
+.inherit{font-size:11px;color:var(--accent-info);display:flex;align-items:center;gap:6px}
+.inherit button{color:var(--text-readable);border:1px solid var(--border-neutral);background:none;border-radius:4px;padding:1px 7px;font-size:10px}
+.override{color:var(--accent-amber)}
+
+/* import */
+.import{display:flex;flex-direction:column;gap:7px}
+.import .seg2{display:flex;gap:4px;background:var(--bg-surface);border:1px solid var(--border-neutral);border-radius:var(--radius-md);padding:3px;width:max-content}
+.import .seg2 button{font-size:11px;color:var(--text-muted);background:none;border:0;padding:4px 11px;border-radius:4px}.import .seg2 button.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+.import .file{display:flex;align-items:center;gap:10px;background:var(--bg-surface);border:1px solid var(--border-neutral);border-radius:var(--radius-md);padding:8px 11px}
+.import .file .nm{flex:1;font-family:var(--font-mono);font-size:12px;color:var(--text-readable);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.import .file .meta{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+
+/* command preview */
+.cmdprev{margin-top:var(--space-3);background:var(--bg-void);border:1px solid var(--border-neutral);border-radius:var(--radius-md);padding:10px 13px}
+.cmdprev .lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
+.cmdprev code{font-family:var(--font-mono);font-size:12px;color:var(--text-readable);word-break:break-all}
+.cmdprev code b{color:var(--accent-primary)}
+
+.mod-foot{display:flex;align-items:center;gap:10px;margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border-subtle)}
+.btn{font-size:13px;padding:8px 16px;border-radius:var(--radius-md);border:1px solid;font-weight:500}
+.btn.primary{background:var(--accent-primary);border-color:var(--accent-primary);color:#04120E}
+.btn.primary:disabled{opacity:.3}
+.btn.ghost{background:none;border-color:var(--border-neutral);color:var(--text-readable)}
+
+/* global & AI panes */
+.panel{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);padding:var(--space-5);margin-bottom:var(--space-4)}
+.panel h4{font-size:14px;color:var(--text-primary);margin-bottom:var(--space-2);display:flex;align-items:center;gap:8px}
+.panel h4 .pri{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-high);border:1px solid rgba(255,107,53,.3);background:rgba(255,107,53,.06);padding:2px 7px;border-radius:4px}
+.panel .sub{margin-bottom:var(--space-3)}
+.ta{width:100%;background:var(--bg-void);border:1px solid var(--border-neutral);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font-mono);font-size:13px;padding:11px 13px;min-height:84px;resize:vertical;outline:none}
+.ta:focus{border-color:var(--border-strong)}
+.gform{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-3) var(--space-4)}
+
+/* sticky save bar */
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(17,22,24,.96);backdrop-filter:blur(14px);border-top:1px solid var(--border-default);padding:14px 0}
+.savebar .inner{max-width:1040px;margin:0 auto;padding:0 var(--space-5);display:flex;align-items:center;gap:var(--space-4)}
+.savebar .msg{flex:1;font-size:13px;color:var(--text-readable);display:flex;align-items:center;gap:9px}
+.savebar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent-amber);box-shadow:0 0 8px var(--accent-amber)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><b>◢◤</b> WebKiller <span class="v">2.0</span></div>
+  <div class="nav"><a href="#">Dashboard</a><a href="#">New Scan</a><a href="#">Tools</a><a href="#" class="on">Settings</a></div>
+</div>
+<div class="wrap">
+  <span class="mock-label">Settings v2 · Fable critique applied + install flow</span>
+
+  <div class="hd">
+    <h1>Settings</h1>
+    <div class="profile-sel"><span>Profile</span>
+      <select><option>Normal</option><option>Stealth</option><option>Aggressive</option><option>Bug bounty — Acme</option><option>+ New preset…</option></select>
+    </div>
+  </div>
+  <div class="summary" style="margin-bottom:var(--space-2)">
+    <span class="sm">24 <b>modules</b></span><span class="sm ok">19 <b>ready</b></span>
+    <span class="sm warn" tabindex="0" role="button">5 <b>need a tool</b></span>
+  </div>
+
+  <div class="install-banner">
+    <span class="ic">⚠</span>
+    <div class="t"><b>5 helper tools are missing.</b> Modules that can’t fall back to built-in logic are disabled until you install them.</div>
+    <button class="mini">Copy all commands</button><button class="mini">Re-check all</button><button class="mini accent">Open Tools</button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="on" role="tab" aria-selected="true" onclick="tab(this,'modules')">Modules</button>
+    <button role="tab" onclick="tab(this,'global')">Global defaults</button>
+    <button role="tab" onclick="tab(this,'ai')">AI provider</button>
+  </div>
+
+  <!-- MODULES -->
+  <div class="pane on" id="modules">
+    <div class="toolbar">
+      <div class="search"><span class="ic">⌕</span><input placeholder="Search modules — name, tool, or what it checks…"><kbd>⌘K</kbd></div>
+      <button class="chip on">All <span class="n">24</span></button>
+      <button class="chip">Ready <span class="n">19</span></button>
+      <button class="chip">Needs a tool <span class="n">5</span></button>
+      <button class="mini" style="margin-left:auto">Collapse all</button>
+    </div>
+
+    <div class="group">
+      <button class="group-h"><span class="caret">▾</span><span class="gn">Discovery</span><span class="gc">4 / 5 enabled</span><span class="ln"></span></button>
+
+      <div class="mod">
+        <div class="mod-h">
+          <button class="sw" role="switch" aria-checked="true" aria-label="Enable Passive subdomains"></button>
+          <button class="mod-expand"><span><span class="mod-name">Passive subdomains</span><span class="mod-desc">Subdomains from public sources (crt.sh, passive DBs)</span></span></button>
+          <div class="status"><span class="tbadge ready">● subfinder · v2.6</span></div>
+          <span class="caret2">▸</span>
+        </div>
+      </div>
+
+      <div class="mod open">
+        <div class="mod-h">
+          <button class="sw" role="switch" aria-checked="true" aria-label="Enable Content discovery"></button>
+          <button class="mod-expand"><span><span class="mod-name">Content discovery</span><span class="mod-desc">Brute-force paths & files on live hosts</span></span></button>
+          <div class="status"><span class="tbadge ready">● ffuf · v2.1</span></div>
+          <span class="caret2">▾</span>
+        </div>
+        <div class="mod-body">
+          <div class="field full import">
+            <label>Wordlist <span class="help">— built-in or your own</span></label>
+            <div class="seg2"><button>Built-in</button><button class="on">Custom file</button></div>
+            <div class="file"><span class="nm">~/wordlists/raft-medium-dirs.txt</span><span class="meta">30,000 lines · 412 KB</span><button class="mini">Change</button><button class="mini">Remove</button></div>
+          </div>
+          <div class="form">
+            <div class="field"><label>Threads <span class="q">?</span></label><div class="inwrap"><input type="number" value="40"></div><span class="sub">1–200 · default 40</span></div>
+            <div class="field"><label>Per-request timeout</label><div class="inwrap"><input type="number" value="10"><span class="unit">s</span></div></div>
+            <div class="field"><label>Max live hosts</label><div class="inwrap"><input type="number" value="10"></div></div>
+            <div class="field wide"><label>Match status codes</label><div class="inwrap"><input value="200, 301, 302, 403"></div></div>
+            <div class="field"><label>Request rate</label><div class="inwrap"><input type="number" value="50"><span class="unit">req/s</span></div><span class="inherit">↳ inherits global <button>Override</button></span></div>
+          </div>
+          <div class="cmdprev"><div class="lbl">Command preview</div><code>ffuf -u https://host/<b>FUZZ</b> -w raft-medium-dirs.txt -mc <b>200,301,302,403</b> -t <b>40</b> -timeout <b>10</b></code></div>
+          <div class="mod-foot"><button class="btn primary">Save</button><button class="btn ghost">Reset to defaults</button></div>
+        </div>
+      </div>
+
+      <div class="mod open">
+        <div class="mod-h">
+          <button class="sw" role="switch" aria-checked="true" aria-label="Enable Host probe"></button>
+          <button class="mod-expand"><span><span class="mod-name">Host probe</span><span class="mod-desc">Find which hosts are live — built-in fallback if httpx is missing</span></span></button>
+          <div class="status"><span class="tbadge fallback">▲ httpx missing · using built-in</span></div>
+          <span class="caret2">▾</span>
+        </div>
+        <div class="mod-body">
+          <div class="fallback-note"><span style="color:var(--accent-amber)">▲</span><div><b style="color:var(--accent-amber)">Running on the built-in prober.</b> It works, but httpx is faster and detects more (tech, titles, redirects). Install it to upgrade — your settings below still apply.</div></div>
+          <div class="form">
+            <div class="field"><label>Concurrency</label><div class="inwrap"><input type="number" value="20"></div></div>
+            <div class="field"><label>Timeout</label><div class="inwrap"><input type="number" value="10"><span class="unit">s</span></div></div>
+            <div class="field"><label>Follow redirects</label><div class="inwrap"><input value="yes"></div></div>
+          </div>
+          <div class="mod-foot"><button class="btn primary">Save</button><button class="btn ghost">Reset</button><span style="margin-left:auto"><button class="mini accent">Install httpx ↑</button></span></div>
+        </div>
+      </div>
+
+      <div class="mod open">
+        <div class="mod-h">
+          <button class="sw" role="switch" aria-checked="false" aria-label="Enable Port scan"></button>
+          <button class="mod-expand"><span><span class="mod-name">Port scan</span><span class="mod-desc">Discover open ports on live hosts</span></span></button>
+          <div class="status"><span class="tbadge blocked">✕ naabu · not installed</span></div>
+          <span class="caret2">▾</span>
+        </div>
+        <div class="mod-body">
+          <div class="install-card">
+            <div class="hd2"><span>✕</span> naabu is required and not installed — this module is off and can’t be saved.</div>
+            <div class="install-row">
+              <select><option>macOS (brew)</option><option>Go</option><option>Linux (apt)</option></select>
+              <div class="cmd">brew install naabu<button class="copy">Copy</button></div>
+            </div>
+            <div class="install-row">
+              <span class="recheck"><button class="mini">Re-check</button> last checked 2m ago · not found on PATH</span>
+              <span class="recheck" style="margin-left:auto"><button class="mini">Set custom binary path…</button></span>
+            </div>
+          </div>
+          <fieldset disabled><div class="form">
+            <div class="field"><label>Top ports</label><div class="inwrap"><input type="number" value="1000"></div></div>
+            <div class="field"><label>Rate</label><div class="inwrap"><input type="number" value="1000"><span class="unit">pkt/s</span></div></div>
+          </div></fieldset>
+          <div class="mod-foot"><button class="btn primary" disabled>Save</button><button class="btn ghost" disabled>Reset</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <button class="group-h"><span class="caret">▾</span><span class="gn">Checks</span><span class="gc">11 / 14 enabled · active testing</span><span class="ln"></span></button>
+
+      <div class="mod">
+        <div class="mod-h">
+          <button class="sw" role="switch" aria-checked="true" aria-label="Enable Reflected XSS"></button>
+          <button class="mod-expand"><span><span class="mod-name">Reflected XSS <span class="tag intr">intrusive</span></span><span class="mod-desc">Confirm reflected cross-site scripting on parameters</span></span></button>
+          <div class="status"><span class="tbadge ready">● dalfox</span></div>
+          <span class="caret2">▸</span>
+        </div>
+      </div>
+
+      <div class="mod open">
+        <div class="mod-h">
+          <button class="sw" role="switch" aria-checked="true" aria-label="Enable SSRF"></button>
+          <button class="mod-expand"><span><span class="mod-name">SSRF <span class="tag intr">intrusive</span></span><span class="mod-desc">Server-side request forgery — built-in, optional out-of-band server</span></span></button>
+          <div class="status"><span class="tbadge builtin">◆ built-in</span></div>
+          <span class="caret2">▾</span>
+        </div>
+        <div class="mod-body">
+          <div class="note" style="margin-bottom:var(--space-3);color:var(--text-muted)">Active checks obey the global rate cap (50 req/s). <b style="color:var(--text-readable)">Turn on only with written authorization.</b></div>
+          <div class="form">
+            <div class="field"><label>Max URLs to test</label><div class="inwrap"><input type="number" value="40"></div></div>
+            <div class="field"><label>Request timeout</label><div class="inwrap"><input type="number" value="8"><span class="unit">s</span></div></div>
+            <div class="field"></div>
+            <div class="field wide"><label>Out-of-band server URL <span class="help">— for blind SSRF on real targets</span></label><div class="inwrap"><input placeholder="https://xxxx.oast.pro"></div></div>
+            <div class="field"><label>OOB marker</label><div class="inwrap"><input placeholder="auto"></div></div>
+          </div>
+          <div class="mod-foot"><button class="btn primary">Save</button><button class="btn ghost">Reset</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GLOBAL -->
+  <div class="pane" id="global">
+    <div class="panel">
+      <h4>Scope <span class="pri">most important</span></h4>
+      <div class="sub">Hosts the scanner must never touch, even if discovered. One per line · wildcards allowed.</div>
+      <textarea class="ta">*.prod.acme.com
+payments.acme.com
+status.acme.com</textarea>
+      <div class="sub" style="margin-top:6px">3 rules · applied to every scan</div>
+    </div>
+    <div class="panel">
+      <h4>Request defaults</h4>
+      <div class="gform">
+        <div class="field wide"><label>User-Agent</label><div class="inwrap"><input value="WebKiller/2.0 (+authorized-security-testing)"></div><span class="sub">presets: Default · Chrome · Googlebot · Custom</span></div>
+        <div class="field"><label>Rate limit</label><div class="inwrap"><input type="number" value="50"><span class="unit">req/s</span></div><span class="sub">hard cap for every module</span></div>
+        <div class="field"><label>Concurrency</label><div class="inwrap"><input type="number" value="20"></div></div>
+        <div class="field"><label>Default timeout</label><div class="inwrap"><input type="number" value="15"><span class="unit">s</span></div></div>
+        <div class="field wide import"><label>Resolvers list</label><div class="file"><span class="nm">built-in (trickest resolvers)</span><button class="mini">Import custom…</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI -->
+  <div class="pane" id="ai">
+    <div class="panel">
+      <h4><button class="sw" role="switch" aria-checked="true" aria-label="Enable AI" style="margin-right:4px"></button> AI provider <span class="sub" style="margin:0 0 0 6px">— powers agentic scans, report & triage</span></h4>
+      <div class="gform" style="margin-top:var(--space-3)">
+        <div class="field"><label>Provider</label><div class="inwrap"><input value="OpenRouter"></div><span class="sub">sets base URL & model list</span></div>
+        <div class="field wide"><label>Base URL</label><div class="inwrap"><input class="mono" value="https://openrouter.ai/api/v1"></div></div>
+        <div class="field wide"><label>Model <span class="help">— report & triage (quality)</span></label><div class="inwrap"><input value="deepseek/deepseek-chat"></div></div>
+        <div class="field wide"><label>Agent model <span class="help">— fast model for the agentic loop</span></label><div class="inwrap"><input value="google/gemini-3.1-flash-lite"></div></div>
+        <div class="field wide"><label>API key</label><div class="inwrap"><input value="sk-or-••••••••••••••36aa"><span class="unit" style="cursor:pointer">show</span></div></div>
+        <div class="field" style="align-self:end"><button class="btn ghost">Test connection</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="savebar"><div class="inner"><span class="msg"><span class="dot"></span>2 modules changed — unsaved</span><button class="btn ghost">Discard</button><button class="btn primary">Save all</button></div></div>
+
+<script>
+function tab(btn,id){document.querySelectorAll('.tabs button').forEach(b=>{b.classList.remove('on');b.setAttribute('aria-selected','false')});btn.classList.add('on');btn.setAttribute('aria-selected','true');document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));document.getElementById(id).classList.add('on');}
+document.querySelectorAll('.mod-expand').forEach(e=>e.addEventListener('click',()=>e.closest('.mod').classList.toggle('open')));
+document.querySelectorAll('.sw').forEach(s=>s.addEventListener('click',ev=>{ev.stopPropagation();s.setAttribute('aria-checked',s.getAttribute('aria-checked')==='true'?'false':'true')}));
+document.querySelectorAll('.caret2').forEach(c=>c.closest('.mod-h')&&c.addEventListener('click',()=>c.closest('.mod').classList.toggle('open')));
+</script>
+</body>
+</html>

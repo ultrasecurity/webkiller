@@ -1,0 +1,483 @@
+{
+  "schemaVersion": 1,
+  "tools": {
+    "subfinder": {
+      "version": "2.6.6",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_macOS_arm64.zip",
+          "sha256": "feecdd2ce02946e17280a9ce3a6e87dcb49aeb5364dbccfcd8a2dcb3b1dc21bf",
+          "size": 9735693,
+          "archive": "zip",
+          "member": "subfinder"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_macOS_amd64.zip",
+          "sha256": "c4e82d2ee1f401e9915b1088b0c30020571d1a129ac520596456d81208ba1eb9",
+          "size": 10125315,
+          "archive": "zip",
+          "member": "subfinder"
+        },
+        "linux-x64": {
+          "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_linux_amd64.zip",
+          "sha256": "6fda32fe1f5750e63fa07c112b1b615d033e425c6dc6659ed8ec61035eb8eba2",
+          "size": 9715463,
+          "archive": "zip",
+          "member": "subfinder"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_linux_arm64.zip",
+          "sha256": "3e3a08f7656e57824d7efc93703249ec46bbf5e716b0f287ec8947fa3a2bc9eb",
+          "size": 8883938,
+          "archive": "zip",
+          "member": "subfinder"
+        },
+        "win32-x64": {
+          "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_windows_amd64.zip",
+          "sha256": "d5027283838a82a20f40f05a20753340efc2144783d134f7747df3739360e440",
+          "size": 10004511,
+          "archive": "zip",
+          "member": "subfinder.exe"
+        },
+        "win32-arm64": {
+          "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.6.6/subfinder_2.6.6_windows_arm64.zip",
+          "sha256": "513bf69559f4d6a30a173442037d6559d40d15571c139ddc7d1ef4212709848d",
+          "size": 8952249,
+          "archive": "zip",
+          "member": "subfinder.exe"
+        }
+      }
+    },
+    "httpx": {
+      "version": "1.6.9",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.6.9/httpx_1.6.9_macOS_arm64.zip",
+          "sha256": "df82b8cb719a4a0e54998366ec5502c1c80afd77794cc2bf6d178d7a013408aa",
+          "size": 14093118,
+          "archive": "zip",
+          "member": "httpx"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.6.9/httpx_1.6.9_macOS_amd64.zip",
+          "sha256": "0bb9cbbebea22ad81c76a82b059fbfe2a18513d1aa84e61b64c6e6daf4a50b0d",
+          "size": 14401705,
+          "archive": "zip",
+          "member": "httpx"
+        },
+        "linux-x64": {
+          "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.6.9/httpx_1.6.9_linux_amd64.zip",
+          "sha256": "c8d36461b5d736e88c3f9104fed15f2112eb7263dbda35fd08aa5a771bddfb5f",
+          "size": 13836496,
+          "archive": "zip",
+          "member": "httpx"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.6.9/httpx_1.6.9_linux_arm64.zip",
+          "sha256": "8cf124b4f62236ff3149b83a8bfc70203fcda3dfda6606013751b229b3e0aa95",
+          "size": 12979430,
+          "archive": "zip",
+          "member": "httpx"
+        },
+        "win32-x64": {
+          "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.6.9/httpx_1.6.9_windows_amd64.zip",
+          "sha256": "66680ff886933773deacd17ba330dd42049620b6a6753054ebc2261a52c5e0a9",
+          "size": 13204752,
+          "archive": "zip",
+          "member": "httpx.exe"
+        },
+        "win32-arm64": {
+          "missing": true,
+          "expected": "httpx_1.6.9_windows_arm64.zip"
+        }
+      }
+    },
+    "dnsx": {
+      "version": "1.2.1",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/projectdiscovery/dnsx/releases/download/v1.2.1/dnsx_1.2.1_macOS_arm64.zip",
+          "sha256": "5a1bc30ae5ebde44c072c069a83ce201736da63aae272fd58937d542e6fd0077",
+          "size": 9546875,
+          "archive": "zip",
+          "member": "dnsx"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/projectdiscovery/dnsx/releases/download/v1.2.1/dnsx_1.2.1_macOS_amd64.zip",
+          "sha256": "42df90079de117b7bc4d15817601d473eb9aa900a6bcb6bb8f3b8b840b731843",
+          "size": 9963256,
+          "archive": "zip",
+          "member": "dnsx"
+        },
+        "linux-x64": {
+          "url": "https://github.com/projectdiscovery/dnsx/releases/download/v1.2.1/dnsx_1.2.1_linux_amd64.zip",
+          "sha256": "7ff88172c1b108d0ccb25a315bcf3f267be4b9d360586b7e9f8799ad89727478",
+          "size": 9559884,
+          "archive": "zip",
+          "member": "dnsx"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/projectdiscovery/dnsx/releases/download/v1.2.1/dnsx_1.2.1_linux_arm64.zip",
+          "sha256": "fb96e9178c1b1e68a589b66398f268fc3836eb2c21fd346d11bb4f81cfa39044",
+          "size": 8722050,
+          "archive": "zip",
+          "member": "dnsx"
+        },
+        "win32-x64": {
+          "url": "https://github.com/projectdiscovery/dnsx/releases/download/v1.2.1/dnsx_1.2.1_windows_amd64.zip",
+          "sha256": "e360a112f6251636c8b625f48986dd5883abb0631bb1c58ca2080e40410c9703",
+          "size": 9840224,
+          "archive": "zip",
+          "member": "dnsx.exe"
+        },
+        "win32-arm64": {
+          "missing": true,
+          "expected": "dnsx_1.2.1_windows_arm64.zip"
+        }
+      }
+    },
+    "naabu": {
+      "version": "2.7.0",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/projectdiscovery/naabu/releases/download/v2.7.0/naabu_2.7.0_macOS_arm64.zip",
+          "sha256": "25caf00cfbba2b36aa5285c7605909e2bb668dac98729ba939ad3061df9551cf",
+          "size": 11137083,
+          "archive": "zip",
+          "member": "naabu"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/projectdiscovery/naabu/releases/download/v2.7.0/naabu_2.7.0_macOS_amd64.zip",
+          "sha256": "97eed2223ba5bc0958621569dc92e8c4c257ec3d3ee3c1a9baddf23f152eb825",
+          "size": 11898431,
+          "archive": "zip",
+          "member": "naabu"
+        },
+        "linux-x64": {
+          "url": "https://github.com/projectdiscovery/naabu/releases/download/v2.7.0/naabu_2.7.0_linux_amd64.zip",
+          "sha256": "0cc77c0ca32d2f519ffbaa7665bb0e7c88c40753ab22f03551d453a1a823e9f0",
+          "size": 11639228,
+          "archive": "zip",
+          "member": "naabu"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/projectdiscovery/naabu/releases/download/v2.7.0/naabu_2.7.0_linux_arm64.zip",
+          "sha256": "e88af9bbfd777e2ffab6f84696747ba74de98fafeda882c078d158a610dbd86e",
+          "size": 10627235,
+          "archive": "zip",
+          "member": "naabu"
+        },
+        "win32-x64": {
+          "url": "https://github.com/projectdiscovery/naabu/releases/download/v2.7.0/naabu_2.7.0_windows_amd64.zip",
+          "sha256": "57f014880ec4d8cfe9d23d7a185d1b478f7867fc6f5fef63be1af835a4c5639a",
+          "size": 11831422,
+          "archive": "zip",
+          "member": "naabu.exe"
+        },
+        "win32-arm64": {
+          "missing": true,
+          "expected": "naabu_2.7.0_windows_arm64.zip"
+        }
+      }
+    },
+    "nuclei": {
+      "version": "3.11.1",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_macOS_arm64.zip",
+          "sha256": "7d7e291addd1fc29a9bf8d089afe878a9799b20229cbea2fb1693fc40fd4c5f0",
+          "size": 43571292,
+          "archive": "zip",
+          "member": "nuclei"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_macOS_amd64.zip",
+          "sha256": "75c47ce11e9dbd4288a1c895ed85e3c4df9f4acb8237d6d178da6dccd1628f2a",
+          "size": 47219687,
+          "archive": "zip",
+          "member": "nuclei"
+        },
+        "linux-x64": {
+          "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_linux_amd64.zip",
+          "sha256": "ea63d4ae232808cd7c6bc00d0142428e231fab59dae01042246097d195835ab6",
+          "size": 46148343,
+          "archive": "zip",
+          "member": "nuclei"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_linux_arm64.zip",
+          "sha256": "8044e3d9768ba0a744b2872c1a87e813006f013da97ca9f50f7661a4203bec07",
+          "size": 41431918,
+          "archive": "zip",
+          "member": "nuclei"
+        },
+        "win32-x64": {
+          "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_windows_amd64.zip",
+          "sha256": "bb6cb9ff8939b753f6fcab06fd30a15f5bc61d8382a597871334c007a85ff9d2",
+          "size": 46067128,
+          "archive": "zip",
+          "member": "nuclei.exe"
+        },
+        "win32-arm64": {
+          "missing": true,
+          "expected": "nuclei_3.11.1_windows_arm64.zip"
+        }
+      }
+    },
+    "katana": {
+      "version": "1.8.0",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/projectdiscovery/katana/releases/download/v1.8.0/katana_1.8.0_macOS_arm64.zip",
+          "sha256": "52e9802e9f83012a089fe57fb1ac476b936f181ac033c71bfa55f913c07cede6",
+          "size": 31574229,
+          "archive": "zip",
+          "member": "katana"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/projectdiscovery/katana/releases/download/v1.8.0/katana_1.8.0_macOS_amd64.zip",
+          "sha256": "806256316dd45e0fe0e3985fd7283ddffc376c95cbaa3dcfd14cde6e1de61aaf",
+          "size": 32433462,
+          "archive": "zip",
+          "member": "katana"
+        },
+        "linux-x64": {
+          "url": "https://github.com/projectdiscovery/katana/releases/download/v1.8.0/katana_1.8.0_linux_amd64.zip",
+          "sha256": "cb027ae99d0757061b70c07a15c7a80f62c5a535ab52c4a329f80c4b0a7309d2",
+          "size": 31910234,
+          "archive": "zip",
+          "member": "katana"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/projectdiscovery/katana/releases/download/v1.8.0/katana_1.8.0_linux_arm64.zip",
+          "sha256": "80e269210727a855511ffac8dfb01297b2344742acec71a35e8ba4a67a90f0f2",
+          "size": 30527878,
+          "archive": "zip",
+          "member": "katana"
+        },
+        "win32-x64": {
+          "url": "https://github.com/projectdiscovery/katana/releases/download/v1.8.0/katana_1.8.0_windows_amd64.zip",
+          "sha256": "8013253e3092e08524527a5c3f7ebd70747acc4bb51414858f8e6dffeb17f907",
+          "size": 17224143,
+          "archive": "zip",
+          "member": "katana.exe"
+        },
+        "win32-arm64": {
+          "url": "https://github.com/projectdiscovery/katana/releases/download/v1.8.0/katana_1.8.0_windows_arm64.zip",
+          "sha256": "4b7c2e5759c8ea1a72081d75930e1ef24853a933c1d35e114ef6787bfc8ae058",
+          "size": 15632560,
+          "archive": "zip",
+          "member": "katana.exe"
+        }
+      }
+    },
+    "ffuf": {
+      "version": "2.1.0",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_macOS_arm64.tar.gz",
+          "sha256": "df1fdfbdc7ab6abb54cdf212452d585121bf291512649cf36c43a18d849f960e",
+          "size": 3470051,
+          "archive": "tar.gz",
+          "member": "ffuf"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_macOS_amd64.tar.gz",
+          "sha256": "d2d8a561f166d34d60d90f2f9b0a7ebe1414c0836549a1292e8da3206ac8781d",
+          "size": 3616490,
+          "archive": "tar.gz",
+          "member": "ffuf"
+        },
+        "linux-x64": {
+          "url": "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_amd64.tar.gz",
+          "sha256": "fc2c82736c14dcbea4daf3d3cf3878c1c4773008ba45c2bc0fceba7d17b40bb5",
+          "size": 3478614,
+          "archive": "tar.gz",
+          "member": "ffuf"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_arm64.tar.gz",
+          "sha256": "6ae920d09d5202762fca21967a460c6fb88135bdfa806bee4d3d2c430dcedeea",
+          "size": 3212622,
+          "archive": "tar.gz",
+          "member": "ffuf"
+        },
+        "win32-x64": {
+          "url": "https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_windows_amd64.zip",
+          "sha256": "c0aec0289f1963cfc38a204f9ebe97712441c670fa7d7aad145cf87b15f038d4",
+          "size": 3597628,
+          "archive": "zip",
+          "member": "ffuf.exe"
+        }
+      }
+    },
+    "dalfox": {
+      "version": "2.9.2",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_darwin_arm64.tar.gz",
+          "sha256": "3fe00fad7265177fac3ec0ea8d2058daddb0461676f3bb5b87d467d2d61bad89",
+          "size": 8705140,
+          "archive": "tar.gz",
+          "member": "dalfox"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_darwin_amd64.tar.gz",
+          "sha256": "be4dbee39a3a115e2803548ad8e848ad028e56bc3c8198ab81dafccb9951f793",
+          "size": 8742251,
+          "archive": "tar.gz",
+          "member": "dalfox"
+        },
+        "linux-x64": {
+          "url": "https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_linux_amd64.tar.gz",
+          "sha256": "38b7b8d0910b23508ec5f0caf13a480355c66eb2cd6127f3ab811730e43a699c",
+          "size": 8468670,
+          "archive": "tar.gz",
+          "member": "dalfox"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_linux_arm64.tar.gz",
+          "sha256": "7cb9ee6838a3e102c39f14d9512f6df2c5d57bc54a6468441611e4b9bf9bf955",
+          "size": 7970082,
+          "archive": "tar.gz",
+          "member": "dalfox"
+        },
+        "win32-x64": {
+          "url": "https://github.com/hahwul/dalfox/releases/download/v2.9.2/dalfox_2.9.2_windows_amd64.tar.gz",
+          "sha256": "0cb8f3ca1df6aeb6cf192377098471fa262187c901dfcfce4372d4547f25f549",
+          "size": 8573319,
+          "archive": "tar.gz",
+          "member": "dalfox.exe"
+        }
+      }
+    },
+    "gau": {
+      "version": "2.2.4",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/lc/gau/releases/download/v2.2.4/gau_2.2.4_darwin_arm64.tar.gz",
+          "sha256": "228b149beaa115f4bccff872bb85c01b7a2a740a01a4cdfb5a2c28950f806ab1",
+          "size": 3374661,
+          "archive": "tar.gz",
+          "member": "gau"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/lc/gau/releases/download/v2.2.4/gau_2.2.4_darwin_amd64.tar.gz",
+          "sha256": "03431aaa60e3efcd75235fcfa00f410088dfbf9fcc1eacdf39fa5a585090ee39",
+          "size": 3604518,
+          "archive": "tar.gz",
+          "member": "gau"
+        },
+        "linux-x64": {
+          "url": "https://github.com/lc/gau/releases/download/v2.2.4/gau_2.2.4_linux_amd64.tar.gz",
+          "sha256": "10e2e248c37cafb0be3f6d2931125296b95cd4186066d596d47fa417237529a9",
+          "size": 3572231,
+          "archive": "tar.gz",
+          "member": "gau"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/lc/gau/releases/download/v2.2.4/gau_2.2.4_linux_arm64.tar.gz",
+          "sha256": "c194992df360d3a24e021c6dc5a5a0576cfd769be1d19cccb29adc1d3759637d",
+          "size": 3259519,
+          "archive": "tar.gz",
+          "member": "gau"
+        },
+        "win32-x64": {
+          "url": "https://github.com/lc/gau/releases/download/v2.2.4/gau_2.2.4_windows_amd64.zip",
+          "sha256": "46eac6d96c9479368d3006191611a33084f177fe4025efed985f40f4b7e51e64",
+          "size": 3639401,
+          "archive": "zip",
+          "member": "gau.exe"
+        }
+      }
+    },
+    "gowitness": {
+      "version": "3.2.2",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/sensepost/gowitness/releases/download/3.2.2/gowitness-3.2.2-darwin-arm64",
+          "sha256": null,
+          "size": 50042882,
+          "archive": "raw",
+          "member": "gowitness"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/sensepost/gowitness/releases/download/3.2.2/gowitness-3.2.2-darwin-amd64",
+          "sha256": null,
+          "size": 51515440,
+          "archive": "raw",
+          "member": "gowitness"
+        },
+        "linux-x64": {
+          "url": "https://github.com/sensepost/gowitness/releases/download/3.2.2/gowitness-3.2.2-linux-amd64",
+          "sha256": null,
+          "size": 50512032,
+          "archive": "raw",
+          "member": "gowitness"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/sensepost/gowitness/releases/download/3.2.2/gowitness-3.2.2-linux-arm64",
+          "sha256": null,
+          "size": 48758944,
+          "archive": "raw",
+          "member": "gowitness"
+        },
+        "win32-x64": {
+          "url": "https://github.com/sensepost/gowitness/releases/download/3.2.2/gowitness-3.2.2-windows-amd64.exe",
+          "sha256": null,
+          "size": 50035200,
+          "archive": "raw",
+          "member": "gowitness.exe"
+        },
+        "win32-arm64": {
+          "url": "https://github.com/sensepost/gowitness/releases/download/3.2.2/gowitness-3.2.2-windows-arm64.exe",
+          "sha256": null,
+          "size": 47756800,
+          "archive": "raw",
+          "member": "gowitness.exe"
+        }
+      }
+    },
+    "trufflehog": {
+      "version": "3.82.0",
+      "assets": {
+        "darwin-arm64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_darwin_arm64.tar.gz",
+          "sha256": "0eef93e7a63e1fc64fda4f39f5fa43a5a5e2cbfb3aaa84f1a11f0ca3b85086d3",
+          "size": 60643089,
+          "archive": "tar.gz",
+          "member": "trufflehog"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_darwin_amd64.tar.gz",
+          "sha256": "69f907ca973dbf7314539aa020102d6fcb3e29d85d23f613365d17a880c32c65",
+          "size": 64063739,
+          "archive": "tar.gz",
+          "member": "trufflehog"
+        },
+        "linux-x64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_amd64.tar.gz",
+          "sha256": "2332b24d85154dee2d1f6ccad4561a622a6086d36214af274336c927b74daf33",
+          "size": 63486183,
+          "archive": "tar.gz",
+          "member": "trufflehog"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_linux_arm64.tar.gz",
+          "sha256": "1ae124d12dfdf1691aa2986b45d2473f6c9c789c88fd0f19cb57f8fd2809aa64",
+          "size": 58939274,
+          "archive": "tar.gz",
+          "member": "trufflehog"
+        },
+        "win32-x64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.82.0/trufflehog_3.82.0_windows_amd64.tar.gz",
+          "sha256": "4207a7f37b1c4f79fd9894df3f533658b3a8df9afb1606a91531c386351dfc62",
+          "size": 64120754,
+          "archive": "tar.gz",
+          "member": "trufflehog.exe"
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-11-18T19:20:09.928Z"
+}

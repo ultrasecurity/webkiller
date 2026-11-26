@@ -1,0 +1,58 @@
+name: tools-cross-platform
+
+# Verifies the managed-tool subsystem (download → verify → extract → detect, and
+# the uv path for Python tools) on REAL Linux / Windows / macOS runners — the whole
+# point being that the dev machine is only ever darwin-arm64.
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash # one shell across all OSes (git-bash on Windows) so steps behave the same
+
+jobs:
+  # Core cross-platform proof: archive tools (zip / tar.gz / raw) really download,
+  # extract and detect on each OS. No external actions beyond checkout/node, so a
+  # tooling hiccup can't mask the result we care about.
+  archive:
+    name: archive/${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci --omit=dev # prod deps only (yauzl); skip the 240 MB electron devDep
+      - name: Platform mapping
+        run: node -e "const {platformKey}=require('./server/tools/detect'); console.log('runner platform key =', platformKey())"
+      - name: Detection smoke (headless, no tools installed)
+        run: node -e "const {detectAll,buildContext}=require('./server/tools/detect'); console.log('tools probed:', Object.keys(detectAll(buildContext())).length)"
+      - name: Acceptance gate — archive tools (zip=httpx/katana, tar.gz=ffuf, raw=gowitness, win-zip=gau)
+        run: node server/tools/doctor.js httpx katana ffuf gowitness gau
+
+  # Python tools via the managed uv env. uv comes from pip (preinstalled Python on
+  # every runner) so there's no third-party-action version to chase.
+  python:
+    name: uv/${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci --omit=dev
+      - name: Install uv
+        run: python -m pip install --upgrade uv
+      - name: Acceptance gate — Python/uv tools (arjun=install-record version, wafw00f=probe version)
+        run: node server/tools/doctor.js arjun wafw00f

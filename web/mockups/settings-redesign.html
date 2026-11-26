@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebKiller — Module settings (redesign)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-void:#0A0E0F;--bg-surface:#111618;--bg-raised:#161D1F;--bg-overlay:#1A2428;--bg-hover:#1E2A2D;
+  --accent-primary:#00D4AA;--accent-primary-dim:#00A888;--accent-primary-glow:rgba(0,212,170,.18);--accent-primary-muted:rgba(0,212,170,.06);
+  --accent-red:#FF4444;--accent-red-glow:rgba(255,68,68,.18);--accent-high:#FF6B35;--accent-amber:#FFAA00;--accent-amber-glow:rgba(255,170,0,.18);
+  --accent-purple:#B84DFF;--accent-info:#4488FF;
+  --text-primary:#C8D8DA;--text-secondary:#5A7A80;--text-muted:#4A6670;--text-disabled:#2A3A40;
+  --border-subtle:rgba(0,212,170,.08);--border-default:rgba(0,212,170,.18);--border-strong:rgba(0,212,170,.40);--border-neutral:#1E2A2D;
+  --font-display:'Space Grotesk',sans-serif;--font-ui:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;
+  --radius-md:4px;--radius-lg:6px;--radius-xl:10px;--radius-2xl:14px;--radius-pill:999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-void);background-image:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(0,212,170,.04) 0,transparent 70%);color:var(--text-primary);font-family:var(--font-ui);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;padding-bottom:60px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 var(--space-5)}
+.mono{font-family:var(--font-mono)}
+h1,h3{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:var(--space-5);padding:14px var(--space-6);background:rgba(10,14,15,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-subtle);margin-bottom:var(--space-5)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700}.brand b{color:var(--accent-primary)}.brand .v{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.nav{display:flex;gap:4px}.nav a{padding:6px 14px;border-radius:var(--radius-md);font-size:13px;color:var(--text-secondary)}.nav a.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+.mock-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-primary);background:var(--accent-primary-muted);border:1px solid var(--border-default);border-radius:var(--radius-pill);padding:4px 14px;display:inline-block;margin-bottom:var(--space-4)}
+
+.hd{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:var(--space-4);flex-wrap:wrap;gap:var(--space-3)}
+.hd h1{font-size:28px}
+.hd .summary{display:flex;gap:var(--space-2);font-family:var(--font-mono);font-size:12px}
+.sm{padding:5px 11px;border-radius:var(--radius-pill);border:1px solid var(--border-neutral);color:var(--text-secondary)}
+.sm b{color:var(--accent-primary)} .sm.warn b{color:var(--accent-amber)}
+.seg{display:flex;gap:4px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:4px;margin-bottom:var(--space-4);width:max-content}
+.seg button{font-family:var(--font-ui);font-size:13px;color:var(--text-secondary);background:none;border:0;padding:7px 16px;border-radius:var(--radius-md);cursor:pointer}
+.seg button.on{color:var(--accent-primary);background:var(--accent-primary-muted)}
+
+.toolbar{display:flex;gap:var(--space-3);align-items:center;margin-bottom:var(--space-4)}
+.search{flex:1;display:flex;align-items:center;gap:8px;background:var(--bg-surface);border:1px solid var(--border-neutral);border-radius:var(--radius-lg);padding:9px 14px}
+.search input{flex:1;background:none;border:0;color:var(--text-primary);font-family:var(--font-ui);font-size:14px;outline:none}
+.search input::placeholder{color:var(--text-muted)}
+.search .ic{color:var(--text-muted)}
+.filterchip{font-size:12px;padding:7px 13px;border-radius:var(--radius-md);border:1px solid var(--border-neutral);color:var(--text-secondary);cursor:pointer;background:var(--bg-surface)}
+.filterchip.on{color:var(--accent-amber);border-color:var(--accent-amber-glow);background:rgba(255,170,0,.06)}
+
+.grp-h{display:flex;align-items:center;gap:10px;margin:var(--space-5) 0 var(--space-2)}
+.grp-h .gn{font-family:var(--font-display);font-size:14px;color:var(--text-secondary)}
+.grp-h .gc{font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.grp-h::after{content:'';flex:1;height:1px;background:var(--border-subtle)}
+
+.mod{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);margin-bottom:var(--space-2);overflow:hidden}
+.mod.open{border-color:var(--border-default)}
+.mod.missing{opacity:.92}
+.mod-h{display:flex;align-items:center;gap:var(--space-3);padding:14px var(--space-4);cursor:pointer}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot.ok{background:var(--accent-primary);box-shadow:0 0 8px var(--accent-primary-glow)}
+.dot.no{background:var(--accent-red);box-shadow:0 0 8px var(--accent-red-glow)}
+.mod-id{min-width:0;flex:1}
+.mod-name{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
+.mod-desc{font-size:12px;color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbadge{font-family:var(--font-mono);font-size:11px;padding:3px 9px;border-radius:var(--radius-pill);border:1px solid var(--border-neutral);color:var(--text-secondary);display:inline-flex;align-items:center;gap:5px;flex-shrink:0}
+.toolbadge.ok{color:var(--accent-primary-dim);border-color:var(--border-default)}
+.toolbadge.no{color:var(--accent-red);border-color:var(--accent-red-glow);background:rgba(255,68,68,.05)}
+.toolbadge.builtin{color:var(--accent-info);border-color:rgba(68,136,255,.25)}
+.sw{width:38px;height:22px;border-radius:var(--radius-pill);background:var(--bg-hover);border:1px solid var(--border-neutral);position:relative;flex-shrink:0;cursor:pointer}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text-muted);transition:all .2s}
+.sw.on{background:var(--accent-primary-muted);border-color:var(--border-strong)}
+.sw.on::after{left:18px;background:var(--accent-primary)}
+.chev{color:var(--text-muted);flex-shrink:0}
+
+.mod-body{display:none;padding:0 var(--space-4) var(--space-4);border-top:1px solid var(--border-subtle)}
+.mod.open .mod-body{display:block}
+.missing-banner{display:flex;gap:12px;align-items:flex-start;background:rgba(255,68,68,.05);border:1px solid var(--accent-red-glow);border-radius:var(--radius-lg);padding:12px 14px;margin:var(--space-3) 0}
+.missing-banner .t{font-size:13px;color:var(--text-secondary)}
+.missing-banner code{font-family:var(--font-mono);font-size:12px;color:var(--accent-primary);background:var(--bg-void);padding:2px 8px;border-radius:var(--radius-sm);border:1px solid var(--border-neutral);display:inline-block;margin-top:6px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3) var(--space-5);margin-top:var(--space-3)}
+.form.locked{opacity:.4;pointer-events:none;filter:grayscale(.3)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;color:var(--text-secondary)}
+.field label .hint{color:var(--text-muted)}
+.inp{background:var(--bg-void);border:1px solid var(--border-neutral);border-radius:var(--radius-md);padding:9px 12px;color:var(--text-primary);font-family:var(--font-mono);font-size:13px;outline:none}
+.inp:focus{border-color:var(--border-strong)}
+.import{display:flex;align-items:center;gap:10px;background:var(--bg-void);border:1px dashed var(--border-neutral);border-radius:var(--radius-md);padding:9px 12px}
+.import .path{flex:1;font-family:var(--font-mono);font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.import .btn-mini{font-size:12px;color:var(--accent-primary);border:1px solid var(--border-default);background:var(--accent-primary-muted);border-radius:var(--radius-md);padding:5px 12px;cursor:pointer}
+.mod-actions{display:flex;align-items:center;gap:10px;margin-top:var(--space-4);padding-top:var(--space-3);border-top:1px solid var(--border-subtle)}
+.btn{font-family:var(--font-ui);font-size:13px;padding:8px 16px;border-radius:var(--radius-md);border:1px solid var(--border-default);background:var(--accent-primary-muted);color:var(--accent-primary);cursor:pointer}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--border-neutral);color:var(--text-secondary)}
+.dirty{font-size:12px;color:var(--accent-amber);margin-left:auto;display:flex;align-items:center;gap:6px}
+.dirty .d{width:6px;height:6px;border-radius:50%;background:var(--accent-amber)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><b>◢◤</b> WebKiller <span class="v">2.0</span></div>
+  <div class="nav"><a>Dashboard</a><a>New Scan</a><a>Tools</a><a class="on">Settings</a></div>
+</div>
+<div class="wrap">
+  <span class="mock-label">Redesign · Module settings — one place for every module</span>
+  <div class="hd">
+    <div><h1>Settings</h1></div>
+    <div class="summary">
+      <span class="sm">24 <b>modules</b></span>
+      <span class="sm">14 <b>helper tools</b></span>
+      <span class="sm warn">5 <b>not installed</b></span>
+    </div>
+  </div>
+  <div class="seg"><button class="on">Modules</button><button>Global defaults</button><button>AI provider</button></div>
+
+  <div class="toolbar">
+    <div class="search"><span class="ic">⌕</span><input placeholder="Search modules — name, helper tool, or what it checks…" value=""></div>
+    <div class="filterchip">All</div>
+    <div class="filterchip on">Only installed</div>
+    <div class="filterchip">Needs a tool</div>
+  </div>
+
+  <!-- DISCOVERY -->
+  <div class="grp-h"><span class="gn">Discovery</span><span class="gc">5 modules</span></div>
+
+  <div class="mod">
+    <div class="mod-h"><span class="dot ok"></span>
+      <div class="mod-id"><div class="mod-name">Passive subdomains</div><div class="mod-desc">Find subdomains from public sources (crt.sh, passive DBs)</div></div>
+      <span class="toolbadge ok">subfinder ✓ v2.6</span><div class="sw on"></div><span class="chev">▸</span>
+    </div>
+  </div>
+
+  <div class="mod open">
+    <div class="mod-h"><span class="dot ok"></span>
+      <div class="mod-id"><div class="mod-name">Content discovery</div><div class="mod-desc">Brute-force paths & files on live hosts</div></div>
+      <span class="toolbadge ok">ffuf ✓ v2.1</span><div class="sw on"></div><span class="chev">▾</span>
+    </div>
+    <div class="mod-body">
+      <div class="form">
+        <div class="field full"><label>Wordlist <span class="hint">— bring your own, or use the built-in</span></label>
+          <div class="import"><span class="path">~/wordlists/raft-medium-dirs.txt</span><span class="btn-mini">Import list…</span></div>
+        </div>
+        <div class="field"><label>Match status codes</label><input class="inp" value="200,301,302,403"></div>
+        <div class="field"><label>Threads</label><input class="inp" value="40"></div>
+        <div class="field"><label>Max live hosts</label><input class="inp" value="10"></div>
+        <div class="field"><label>Per-request timeout <span class="hint">s</span></label><input class="inp" value="10"></div>
+      </div>
+      <div class="mod-actions"><button class="btn">Save module</button><button class="btn ghost">Reset to defaults</button><span class="dirty"><span class="d"></span>unsaved changes</span></div>
+    </div>
+  </div>
+
+  <div class="mod missing open">
+    <div class="mod-h"><span class="dot no"></span>
+      <div class="mod-id"><div class="mod-name">Port scan</div><div class="mod-desc">Discover open ports on live hosts</div></div>
+      <span class="toolbadge no">naabu ✗ not installed</span><div class="sw"></div><span class="chev">▾</span>
+    </div>
+    <div class="mod-body">
+      <div class="missing-banner"><span style="font-size:18px;color:var(--accent-red)">⚠</span>
+        <div class="t"><b style="color:var(--accent-red)">naabu is not installed.</b> This module is disabled and its settings can’t be saved until the helper tool is available.
+          <code>brew install naabu</code> &nbsp;·&nbsp; <span class="btn-mini" style="display:inline-block">Re-check</span></div>
+      </div>
+      <div class="form locked">
+        <div class="field"><label>Top ports</label><input class="inp" value="1000"></div>
+        <div class="field"><label>Rate</label><input class="inp" value="1000"></div>
+      </div>
+      <div class="mod-actions"><button class="btn" disabled>Save module</button><button class="btn ghost" disabled>Reset to defaults</button></div>
+    </div>
+  </div>
+
+  <div class="mod">
+    <div class="mod-h"><span class="dot no"></span>
+      <div class="mod-id"><div class="mod-name">Host probe</div><div class="mod-desc">Find which hosts are live (HTTP/HTTPS) — falls back to built-in if missing</div></div>
+      <span class="toolbadge no">httpx ✗ not installed</span><div class="sw on"></div><span class="chev">▸</span>
+    </div>
+  </div>
+
+  <!-- CHECKS -->
+  <div class="grp-h"><span class="gn">Checks</span><span class="gc">14 modules · active testing</span></div>
+
+  <div class="mod">
+    <div class="mod-h"><span class="dot ok"></span>
+      <div class="mod-id"><div class="mod-name">Reflected XSS</div><div class="mod-desc">Confirm reflected cross-site scripting on parameters</div></div>
+      <span class="toolbadge ok">dalfox ✓</span><div class="sw on"></div><span class="chev">▸</span>
+    </div>
+  </div>
+
+  <div class="mod open">
+    <div class="mod-h"><span class="dot ok"></span>
+      <div class="mod-id"><div class="mod-name">SSRF</div><div class="mod-desc">Confirm server-side request forgery (built-in, optional OOB server)</div></div>
+      <span class="toolbadge builtin">built-in</span><div class="sw on"></div><span class="chev">▾</span>
+    </div>
+    <div class="mod-body">
+      <div class="form">
+        <div class="field"><label>Max URLs to test</label><input class="inp" value="40"></div>
+        <div class="field"><label>Request timeout <span class="hint">s</span></label><input class="inp" value="8"></div>
+        <div class="field full"><label>OOB server URL <span class="hint">— for blind SSRF on real targets (e.g. interactsh)</span></label><input class="inp" value="" placeholder="https://xxxx.oast.pro"></div>
+        <div class="field"><label>OOB marker</label><input class="inp" value="" placeholder="auto"></div>
+      </div>
+      <div class="mod-actions"><button class="btn">Save module</button><button class="btn ghost">Reset to defaults</button></div>
+    </div>
+  </div>
+
+  <div class="mod">
+    <div class="mod-h"><span class="dot ok"></span>
+      <div class="mod-id"><div class="mod-name">Time-based SQLi</div><div class="mod-desc">Confirm time-based SQL injection — deep mode uses ghauri</div></div>
+      <span class="toolbadge ok">ghauri ✓</span><div class="sw on"></div><span class="chev">▸</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WebKiller 2.0 — sabzlearn.ir</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e0f;color:#c8d8da;font-family:'Inter',system-ui,sans-serif;padding:40px;line-height:1.6}
+h1{color:#00d4aa;font-size:28px;margin-bottom:4px}
+h2{color:#00d4aa;font-size:18px;margin:32px 0 12px;text-transform:uppercase;letter-spacing:2px;font-weight:600}
+h3{font-size:14px;color:#5a7a80;margin-bottom:16px}
+.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:24px 0}
+.meta-card{background:#111618;border:1px solid #1a2528;border-radius:10px;padding:16px}
+.meta-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#5a7a80;margin-bottom:4px}
+.meta-value{font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.teal{color:#00d4aa} .amber{color:#ffcc00} .red{color:#ff4444}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;border-bottom:1px solid #1a2528;color:#5a7a80;font-size:11px;text-transform:uppercase;letter-spacing:1px}
+td{padding:8px 12px;border-bottom:1px solid #111618}
+code{font-family:'JetBrains Mono',monospace;font-size:12px}
+.list{background:#111618;border:1px solid #1a2528;border-radius:10px;padding:16px;max-height:400px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8}
+.footer{margin-top:48px;padding-top:16px;border-top:1px solid #1a2528;font-size:11px;color:#5a7a80;text-align:center}
+@media(max-width:600px){
+  body{padding:16px}
+  h1{font-size:22px}
+  .meta{grid-template-columns:1fr 1fr;gap:10px}
+  .meta-value{font-size:20px}
+  table{font-size:11px}
+  th,td{padding:6px 8px}
+  th:nth-child(5),td:nth-child(5){display:none}
+  .list{font-size:11px;word-break:break-all;max-height:300px}
+}
+</style>
+</head>
+<body>
+<h1>WebKiller 2.0 — Recon Report</h1>
+<h3>sabzlearn.ir · Profile: aggressive · 2026-11-07 21:28:49</h3>
+
+<div class="meta">
+  <div class="meta-card"><div class="meta-label">Subdomains</div><div class="meta-value teal">82</div></div>
+  <div class="meta-card"><div class="meta-label">Live Hosts</div><div class="meta-value teal">31</div></div>
+  <div class="meta-card"><div class="meta-label">Findings</div><div class="meta-value amber">0</div></div>
+  <div class="meta-card"><div class="meta-label">Confirmed</div><div class="meta-value red">0</div></div>
+</div>
+
+<h2>Module Results</h2>
+<table>
+<thead><tr><th>Module</th><th>Tool</th><th>Status</th><th>Items</th><th>Duration</th></tr></thead>
+<tbody><tr><td>subdomains_passive</td><td>crt.sh</td><td style="color:#00d4aa">success</td><td>82</td><td>8.2s</td></tr><tr><td>subdomains_active</td><td>python-dns</td><td style="color:#00d4aa">success</td><td>0</td><td>1.4s</td></tr><tr><td>probe</td><td>python-requests</td><td style="color:#00d4aa">success</td><td>31</td><td>103.0s</td></tr><tr><td>portscan</td><td>nmap</td><td style="color:#00d4aa">success</td><td>206</td><td>83.6s</td></tr><tr><td>fingerprint</td><td>wafw00f + httpx-tech</td><td style="color:#00d4aa">success</td><td>0</td><td>0.0s</td></tr><tr><td>urls</td><td>wayback-api</td><td style="color:#00d4aa">success</td><td>0</td><td>5.8s</td></tr><tr><td>content</td><td>python-requests</td><td style="color:#00d4aa">success</td><td>14</td><td>48.8s</td></tr><tr><td>jsrecon</td><td>python-regex</td><td style="color:#00d4aa">success</td><td>10</td><td>4.0s</td></tr><tr><td>params</td><td>python-probe</td><td style="color:#00d4aa">success</td><td>0</td><td>39.2s</td></tr><tr><td>screenshots</td><td>python-headers</td><td style="color:#00d4aa">success</td><td>31</td><td>9.3s</td></tr><tr><td>vuln_signal</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr><tr><td>vuln_confirm</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr><tr><td>xss_confirm</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr><tr><td>sqli_confirm</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr><tr><td>authz_probe</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr><tr><td>bypass_403</td><td>python-bypass</td><td style="color:#00d4aa">success</td><td>0</td><td>23.1s</td></tr><tr><td>secret_verify</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr><tr><td>osint_dns</td><td>whois+dns</td><td style="color:#00d4aa">success</td><td>6</td><td>1.1s</td></tr><tr><td>tagging</td><td></td><td style="color:#5a7a80">skipped</td><td>0</td><td>0.0s</td></tr></tbody>
+</table>
+
+
+
+
+
+<h2>Subdomains (82)</h2><div class='list'>advisor.sabzlearn.ir<br>advisor.stage.sabzlearn.ir<br>api.prod.sabzlearn.ir<br>api.sabzlearn.ir<br>api.stage.sabzlearn.ir<br>backend.lms.sabzlearn.ir<br>beta.sabzlearn.ir<br>bkp.sabzlearn.ir<br>bkp1.sabzlearn.ir<br>chat.sabzlearn.ir<br>console.sabzlearn.ir<br>conv.sabzlearn.ir<br>cpanel.sabzlearn.ir<br>cpcalendars.sabzlearn.ir<br>cpcontacts.sabzlearn.ir<br>db.sabzlearn.ir<br>db.stage.sabzlearn.ir<br>dl.sabzlearn.ir<br>edge.sabzlearn.ir<br>erp.sabzlearn.ir<br>files.sabzlearn.ir<br>flow.prod.sabzlearn.ir<br>form.sabzlearn.ir<br>front.stage.sabzlearn.ir<br>frontend.lms.sabzlearn.ir<br>hcp.sabzlearn.ir<br>img.offer.sabzlearn.ir<br>instructor.stage.sabzlearn.ir<br>intel.sabzlearn.ir<br>intel.stage.sabzlearn.ir<br>ipprs.sabzlearn.ir<br>landing.sabzlearn.ir<br>lms.prod.sabzlearn.ir<br>lms.stage.sabzlearn.ir<br>mail.sabzlearn.ir<br>manager.sabzlearn.ir<br>manager.stage.sabzlearn.ir<br>may.stage.sabzlearn.ir<br>monitor.sabzlearn.ir<br>my.prod.sabzlearn.ir<br>my.sabzlearn.ir<br>my.stage.sabzlearn.ir<br>n8n.sabzlearn.ir<br>new.sabzlearn.ir<br>npm.sabzlearn.ir<br>orm.prod.sabzlearn.ir<br>oss.stage.sabzlearn.ir<br>pma.sabzlearn.ir<br>pma.stage.sabzlearn.ir<br>proxy.sabzlearn.ir<br>proxy.stage.sabzlearn.ir<br>r.offer.sabzlearn.ir<br>sabzlearn.ir<br>sandbox.sabzlearn.ir<br>server.sabzlearn.ir<br>sso.sabzlearn.ir<br>sso.stage.sabzlearn.ir<br>statistics.sabzlearn.ir<br>statistics.stage.sabzlearn.ir<br>status.sabzlearn.ir<br>storage.sabzlearn.ir<br>teacher.sabzlearn.ir<br>teacher.stage.sabzlearn.ir<br>tech.sabzlearn.ir<br>temp.sabzlearn.ir<br>test.sabzlearn.ir<br>up.sabzlearn.ir<br>v4.stage.sabzlearn.ir<br>vod.sabzlearn.ir<br>webdisk.sabzlearn.ir<br>webmail.sabzlearn.ir<br>www.bkp.sabzlearn.ir<br>www.bkp1.sabzlearn.ir<br>www.conv.sabzlearn.ir<br>www.dl.sabzlearn.ir<br>www.form.sabzlearn.ir<br>www.landing.sabzlearn.ir<br>www.mail.sabzlearn.ir<br>www.new.sabzlearn.ir<br>www.sabzlearn.ir<br>www.tech.sabzlearn.ir<br>www.vod.sabzlearn.ir</div>
+
+<h2>Live Hosts (31)</h2><div class='list'>https://api.sabzlearn.ir/<br>https://api.stage.sabzlearn.ir/<br>https://beta.sabzlearn.ir/<br>https://bkp.sabzlearn.ir/<br>https://chat.sabzlearn.ir/<br>https://dl.sabzlearn.ir/<br>https://files.sabzlearn.ir/<br>https://front.stage.sabzlearn.ir/<br>https://hcp.sabzlearn.ir/<br>https://sso.sabzlearn.ir<br>https://intel.stage.sabzlearn.ir/<br>https://ipprs.sabzlearn.ir/<br>https://landing.sabzlearn.ir/<br>https://mail.sabzlearn.ir/<br>https://sso.sabzlearn.ir<br>https://manager.stage.sabzlearn.ir/<br>https://my.sabzlearn.ir/<br>https://my.stage.sabzlearn.ir/<br>https://proxy.sabzlearn.ir/<br>https://sabzlearn.ir/<br>https://sso.sabzlearn.ir/<br>https://sso.stage.sabzlearn.ir/<br>https://statistics.sabzlearn.ir/<br>https://statistics.stage.sabzlearn.ir/<br>https://storage.sabzlearn.ir/<br>https://teacher.sabzlearn.ir/<br>https://teacher.stage.sabzlearn.ir/<br>https://tech.sabzlearn.ir/<br>https://up.sabzlearn.ir/<br>https://webmail.sabzlearn.ir/<br>https://sabzlearn.ir/</div>
+
+
+
+<div class="footer">
+  Generated by WebKiller 2.0 · 2026-11-07 21:28:49 — 2026-11-07 21:34:17 · Duration: 328s
+</div>
+</body></html>

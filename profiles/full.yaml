@@ -1,0 +1,26 @@
+name: full
+description: Full recon — all discovery + fingerprint + URLs + vuln signal
+phases: [P0, P1, P2, P3, P4, P5, P6a, P7, P8]
+modules:
+  - subdomains_passive
+  - subdomains_active
+  - subdomains_permute
+  - probe
+  - portscan
+  - favicon_hash
+  - cert_intel
+  - asn_cidr
+  - cloud_buckets
+  - github_dork
+  - fingerprint
+  - urls
+  - content
+  - api_routes
+  - jsrecon
+  - params
+  - archive_recon
+  - lead_triage
+  - screenshots
+  - vuln_signal
+  - osint_dns
+  - tagging
