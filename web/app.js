@@ -1516,7 +1516,7 @@ async function renderSetup() {
         <div class="setup-logo">
           <svg viewBox="0 0 48 48" width="48" height="48"><circle cx="24" cy="24" r="20" fill="none" stroke="var(--accent-primary)" stroke-width="2"/><path d="M24 12 L24 36 M16 20 L24 12 L32 20" fill="none" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <h1 class="section-title">WebKiller 2.0 Setup</h1>
+        <h1 class="section-title">WebKiller 3.0 Setup</h1>
         <p class="section-sub">Configure your recon environment</p>
       </div>
       <div class="setup-steps" id="setupSteps"></div>

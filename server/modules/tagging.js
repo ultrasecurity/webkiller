@@ -126,7 +126,7 @@ class Tagging extends BaseModule {
 
   _buildReport(summary, findings, confirmed) {
     const lines = [
-      '# WebKiller 2.0 — Recon Report',
+      '# WebKiller 3.0 — Recon Report',
       '',
       `**Total findings:** ${summary.total_unique} unique (${summary.total_confirmed} confirmed)`,
       '',

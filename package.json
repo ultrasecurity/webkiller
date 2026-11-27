@@ -1,7 +1,7 @@
 {
   "name": "webkiller",
-  "version": "2.0.0",
-  "description": "WebKiller 2.0 — Bug Bounty Recon Engine",
+  "version": "3.0.0",
+  "description": "WebKiller 3.0 — Bug Bounty Recon Engine",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
