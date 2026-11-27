@@ -1,5 +1,5 @@
 /* ============================================================
-   WEBKILLER 2.0 — SPA Frontend
+   WEBKILLER 3.0 — SPA Frontend
    ============================================================ */
 
 const $ = s => document.querySelector(s);

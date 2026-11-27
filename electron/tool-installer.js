@@ -149,7 +149,7 @@ class ToolInstaller {
     return new Promise((resolve, reject) => {
       const req = https.get(url, {
         headers: {
-          'User-Agent': 'WebKiller-Installer/2.0',
+          'User-Agent': 'WebKiller-Installer/3.0',
           Accept: 'application/vnd.github.v3+json',
         },
       }, (res) => {
@@ -159,7 +159,7 @@ class ToolInstaller {
         }
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           https.get(res.headers.location, {
-            headers: { 'User-Agent': 'WebKiller-Installer/2.0' },
+            headers: { 'User-Agent': 'WebKiller-Installer/3.0' },
           }, (res2) => {
             this._readJson(res2).then(resolve).catch(reject);
           });
@@ -187,7 +187,7 @@ class ToolInstaller {
   async _download(url, destPath) {
     return new Promise((resolve, reject) => {
       const get = url.startsWith('https') ? https.get : http.get;
-      const req = get(url, { headers: { 'User-Agent': 'WebKiller-Installer/2.0' } }, (res) => {
+      const req = get(url, { headers: { 'User-Agent': 'WebKiller-Installer/3.0' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           this._download(res.headers.location, destPath).then(resolve).catch(reject);
           return;

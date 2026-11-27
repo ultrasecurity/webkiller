@@ -1,5 +1,5 @@
 /* ============================================================
-   WEBKILLER 2.0 — Settings (module + global config)
+   WEBKILLER 3.0 — Settings (module + global config)
    All selectors are prefixed `set-` and scoped under `.set-scope`
    to avoid colliding with app.css. Extra design tokens are defined
    on `.set-scope` so they never leak to other pages.
