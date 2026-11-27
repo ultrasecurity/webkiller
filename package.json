@@ -53,8 +53,7 @@
         }
       ],
       "icon": "build/icon.png",
-      "signAndEditExecutable": false,
-      "sign": false
+      "signAndEditExecutable": false
     },
     "linux": {
       "target": [
@@ -87,8 +86,8 @@
     ]
   },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron": "^45.5.0",
+    "electron-builder": "^26.18.0"
   },
   "dependencies": {
     "express": "^5.3.0",
