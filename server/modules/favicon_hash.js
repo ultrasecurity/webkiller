@@ -86,7 +86,7 @@ class FaviconHash extends BaseModule {
   async _fetch(url) {
     const resp = await fetch(url, {
       signal: AbortSignal.timeout((this.config.favicon_timeout || 10) * 1000),
-      headers: { 'User-Agent': this.config.user_agent || this.config.userAgent || 'WebKiller/2.0' },
+      headers: { 'User-Agent': this.config.user_agent || this.config.userAgent || 'WebKiller/3.0' },
       redirect: 'follow',
     });
     return resp;

@@ -93,7 +93,7 @@ class ApiRoutes extends BaseModule {
 
   async _getJson(url) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout((this.config.api_timeout || 10) * 1000), headers: { 'User-Agent': this.config.user_agent || 'WebKiller/2.0', Accept: 'application/json' } });
+      const r = await fetch(url, { signal: AbortSignal.timeout((this.config.api_timeout || 10) * 1000), headers: { 'User-Agent': this.config.user_agent || 'WebKiller/3.0', Accept: 'application/json' } });
       if (!r.ok) return null;
       const ct = r.headers.get('content-type') || '';
       const body = (await r.text()).slice(0, 4 * 1024 * 1024);

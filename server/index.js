@@ -288,7 +288,7 @@ function setupRoutes(app) {
       const token = (mods.github_dork && mods.github_dork.github_token) || process.env.GITHUB_TOKEN;
       if (!token) return res.json({ ok: false, error: 'no token stored — paste one and Save first' });
       const r = await fetch('https://api.github.com/rate_limit', {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'WebKiller/2.0' },
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'WebKiller/3.0' },
         signal: AbortSignal.timeout(15000),
       });
       if (r.status === 200) {
@@ -569,7 +569,7 @@ body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,s
 <style>${REPORT_CSS}</style></head><body><main class="rp">
   <div class="ag-head"><div>
     <div class="ag-title">${esc(scan.target)}</div>
-    <div class="ag-sub"><span class="ag-pill">WEBKILLER 2.0</span><span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span><span class="ag-pill done">✓ ${esc(scan.status || 'completed')}</span><span class="ag-pill">${esc(started)} · ${esc(duration)}</span></div>
+    <div class="ag-sub"><span class="ag-pill">WEBKILLER 3.0</span><span class="ag-pill mode">⚔ ${esc(scan.profile || '')}</span><span class="ag-pill done">✓ ${esc(scan.status || 'completed')}</span><span class="ag-pill">${esc(started)} · ${esc(duration)}</span></div>
   </div></div>
   <div class="ag-hero">
     <div class="ag-verdict ${conf.length ? '' : leads.length ? 'leads' : 'clean'}">

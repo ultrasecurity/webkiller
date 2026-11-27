@@ -188,7 +188,7 @@ class ServiceCve extends BaseModule {
     return new Promise((resolve, reject) => {
       const https = require('https');
       const params = new URLSearchParams({ virtualMatchString: matchString, resultsPerPage: String(Math.min(30, maxPerCpe * 3)) });
-      const headers = { 'User-Agent': 'WebKiller/2.0' };
+      const headers = { 'User-Agent': 'WebKiller/3.0' };
       if (key) headers.apiKey = key;
       const req = https.get(`https://services.nvd.nist.gov/rest/json/cves/2.0?${params}`, { headers, timeout: 20000 }, (res) => {
         if (res.statusCode && res.statusCode !== 200) { res.resume(); return reject(new Error(`NVD HTTP ${res.statusCode}`)); }

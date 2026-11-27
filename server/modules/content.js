@@ -153,7 +153,7 @@ class Content extends BaseModule {
       'debug', 'test', 'status', 'health', 'info',
     ];
     const records = [];
-    const ua = this.config.userAgent || this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.userAgent || this.config.user_agent || 'WebKiller/3.0';
 
     for (const p of common) {
       const url = `${baseUrl.replace(/\/+$/, '')}/${p}`;

@@ -124,7 +124,7 @@ class Params extends BaseModule {
       'lang', 'debug', 'test', 'admin', 'cmd', 'exec',
     ];
     const found = [];
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
 
     let baseLen;
     let baseStatus;

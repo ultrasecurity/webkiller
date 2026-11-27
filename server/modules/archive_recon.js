@@ -82,7 +82,7 @@ class ArchiveRecon extends BaseModule {
 
   async _get(url) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout((this.config.archive_timeout || 12) * 1000), headers: { 'User-Agent': this.config.user_agent || 'WebKiller/2.0' } });
+      const r = await fetch(url, { signal: AbortSignal.timeout((this.config.archive_timeout || 12) * 1000), headers: { 'User-Agent': this.config.user_agent || 'WebKiller/3.0' } });
       if (!r.ok) return null;
       return (await r.text()).slice(0, 2 * 1024 * 1024);
     } catch { return null; }

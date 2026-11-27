@@ -129,7 +129,7 @@ class XssConfirm extends BaseModule {
   async _reflectionCheck(targets) {
     const canary = 'wk2xss7probe';
     const findings = [];
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
 
     // Target TLS certs are often self-signed/expired; skip verification for
     // these probes only, race-safely (ref-counted, see tls_guard).

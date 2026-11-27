@@ -21,7 +21,7 @@ class LfiConfirm extends BaseModule {
   async execute() {
     const targets = dedupParamUrls(this.workspace, this.scope);
     if (!targets.length) return new ModuleResult({ module: LfiConfirm.moduleName, status: 'skipped', errors: ['No parameterized URLs'] });
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const confirmed = [];
     pushInsecureTLS();
     try {

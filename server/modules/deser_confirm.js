@@ -14,7 +14,7 @@ class DeserConfirm extends BaseModule {
   async execute() {
     const candidates = endpointCandidates(this.workspace, this.scope, true);
     if (!candidates.length) return new ModuleResult({ module: DeserConfirm.moduleName, status: 'skipped', errors: ['No candidate endpoints'] });
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const confirmed = [];
     pushInsecureTLS();
     try {

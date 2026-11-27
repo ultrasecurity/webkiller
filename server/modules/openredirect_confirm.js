@@ -17,7 +17,7 @@ class OpenRedirectConfirm extends BaseModule {
   async execute() {
     const urls = dedupParamUrls(this.workspace, this.scope);
     if (!urls.length) return new ModuleResult({ module: OpenRedirectConfirm.moduleName, status: 'skipped', errors: ['No parameterized URLs'] });
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const confirmed = [];
     pushInsecureTLS();
     try {

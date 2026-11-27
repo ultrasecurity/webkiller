@@ -111,7 +111,7 @@ class Screenshots extends BaseModule {
   async _metadataFallback(targets) {
     const items = [];
     const records = [];
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
 
     // Target TLS certs are often self-signed/expired; skip verification for
     // this metadata fetch only, race-safely (ref-counted, see tls_guard).

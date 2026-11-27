@@ -30,7 +30,7 @@ class JsRecon extends BaseModule {
     const allRecords = [];
 
     const maxFiles = this.config.jsrecon_max_files || 50;
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const surfaced = new Set(); // in-scope endpoints resolved to absolute URLs
 
     for (const jsUrl of jsUrls.slice(0, maxFiles)) {
@@ -113,7 +113,7 @@ class JsRecon extends BaseModule {
 
   async _scrapeScripts(hostUrl) {
     try {
-      const ua = this.config.user_agent || 'WebKiller/2.0';
+      const ua = this.config.user_agent || 'WebKiller/3.0';
       const resp = await fetch(hostUrl, {
         headers: { 'User-Agent': ua },
         signal: AbortSignal.timeout(10000),

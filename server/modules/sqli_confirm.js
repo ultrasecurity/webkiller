@@ -109,7 +109,7 @@ class SqliConfirm extends BaseModule {
 
   async _timingCheck(targets) {
     const findings = [];
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const delayThreshold = 4.0;
     const payloads = [
       "' OR SLEEP(5)-- -",

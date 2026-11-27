@@ -76,7 +76,7 @@ class URLs extends BaseModule {
   // attributes. Bounded (hosts + links capped) and GET-only — safe recon.
   async _crawlLive(liveHosts) {
     const out = new Set();
-    const ua = this.config.userAgent || this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.userAgent || this.config.user_agent || 'WebKiller/3.0';
     const maxHosts = this.config.crawl_max_hosts || 10;
     for (const host of liveHosts.slice(0, maxHosts)) {
       try {
@@ -111,7 +111,7 @@ class URLs extends BaseModule {
         `https://web.archive.org/cdx/search/cdx?url=*.${domain}/*&output=text&fl=original&collapse=urlkey`,
         {
           signal: controller.signal,
-          headers: { 'User-Agent': this.config.userAgent || this.config.user_agent || 'WebKiller/2.0' },
+          headers: { 'User-Agent': this.config.userAgent || this.config.user_agent || 'WebKiller/3.0' },
         }
       );
       clearTimeout(timer);

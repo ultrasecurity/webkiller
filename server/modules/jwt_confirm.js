@@ -18,7 +18,7 @@ class JwtConfirm extends BaseModule {
     const urls = [...new Set([...this.workspace.readLines('urls.txt'), ...this.workspace.readLines('live.txt')])]
       .filter(u => { try { return this.scope.inScope(new URL(u).hostname); } catch { return false; } });
     if (!urls.length) return new ModuleResult({ module: JwtConfirm.moduleName, status: 'skipped', errors: ['No URLs'] });
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const confirmed = [];
     pushInsecureTLS();
     try {

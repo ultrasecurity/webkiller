@@ -21,7 +21,7 @@ class GraphqlConfirm extends BaseModule {
     const candidates = new Set(all.filter(u => /graphql|\/gql|\/query/i.test(u)));
     for (const o of origins) for (const c of CONV) candidates.add(o + c);
 
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const confirmed = [];
     pushInsecureTLS();
     try {

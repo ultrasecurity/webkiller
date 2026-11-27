@@ -15,7 +15,7 @@ class CorsConfirm extends BaseModule {
   async execute() {
     const candidates = endpointCandidates(this.workspace, this.scope, false);
     if (!candidates.length) return new ModuleResult({ module: CorsConfirm.moduleName, status: 'skipped', errors: ['No candidate endpoints'] });
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
     const confirmed = [];
     pushInsecureTLS();
     try {

@@ -48,7 +48,7 @@ class Bypass403 extends BaseModule {
 
     const confirmed = [];
     const items = [];
-    const ua = this.config.user_agent || 'WebKiller/2.0';
+    const ua = this.config.user_agent || 'WebKiller/3.0';
 
     const { pushInsecureTLS, popInsecureTLS } = require('../tls_guard');
     pushInsecureTLS();

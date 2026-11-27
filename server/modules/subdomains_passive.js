@@ -66,7 +66,7 @@ class SubdomainsPassive extends BaseModule {
         `https://crt.sh/?q=%.${domain}&output=json`,
         {
           signal: controller.signal,
-          headers: { 'User-Agent': this.config.userAgent || 'WebKiller/2.0' },
+          headers: { 'User-Agent': this.config.userAgent || 'WebKiller/3.0' },
         }
       );
       clearTimeout(timer);
